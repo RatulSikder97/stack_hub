@@ -59,3 +59,83 @@ def test_main_rejects_duplicate_post_id(new_brief_module, tmp_project) -> None: 
     new_brief_module.main(["--title", "Sprint Test"])
     rc = new_brief_module.main(["--title", "Sprint Test"])
     assert rc == 2
+
+
+def test_from_idea_path_invokes_composer(
+    new_brief_module, tmp_project, monkeypatch
+) -> None:  # noqa: ANN001
+    """`--from-idea` should call IdeaToBrief and write a populated brief."""
+    import json as _json
+
+    from pipeline.brief_builder import BriefDraft
+    from pipeline.translation import TranslationResult
+
+    fake_translation = TranslationResult(
+        original_text="ডিফল্ট সিদ্ধান্ত",
+        translated_text="Default decisions",
+        source_language="bn",
+        target_language="en",
+        needed_translation=True,
+    )
+    fake_draft = BriefDraft(
+        working_title="Default Decisions Beat Willpower",
+        one_big_idea="Most willpower failures are default-design failures.",
+        why_now="Mid-year energy is running out.",
+        target_hook="Counterintuitive Open",
+        target_framework="The Concept Lens",
+        reader_transformation="Reader converts one daily re-decision into a default.",
+        forbidden_moves=["No willpower-as-muscle metaphor."],
+        translation=fake_translation,
+    )
+
+    class _FakeComposer:
+        def __init__(self, *_args, **_kwargs) -> None:  # noqa: ANN001
+            pass
+
+        def build(self, idea: str, *, target_language: str = "en") -> BriefDraft:
+            assert idea.strip()
+            assert target_language == "en"
+            return fake_draft
+
+    class _FakeProvider:
+        pass
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    from pipeline.config import reset_settings_cache
+
+    reset_settings_cache()
+    monkeypatch.setattr(new_brief_module, "build_provider", lambda *_a, **_k: _FakeProvider())
+    monkeypatch.setattr(new_brief_module, "IdeaToBrief", _FakeComposer)
+
+    rc = new_brief_module.main(["--from-idea", "ডিফল্ট সিদ্ধান্ত"])
+    assert rc == 0
+
+    repo = PostRepository()
+    posts = repo.list()
+    assert len(posts) == 1
+    assert posts[0].working_title == "Default Decisions Beat Willpower"
+    assert posts[0].hook_pattern_used == "Counterintuitive Open"
+    assert posts[0].structural_framework_used == "The Concept Lens"
+
+    brief_body = (tmp_project / "briefs" / f"{posts[0].post_id}.md").read_text(encoding="utf-8")
+    assert "## Source Idea" in brief_body
+    assert "ডিফল্ট সিদ্ধান্ত" in brief_body
+    assert "Default decisions" in brief_body
+    _ = _json  # silence unused import lint
+
+
+def test_from_idea_requires_provider_key(
+    new_brief_module, tmp_project, monkeypatch
+) -> None:  # noqa: ANN001
+    """Without an API key the --from-idea path must fail with rc=2."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    from pipeline.config import reset_settings_cache
+
+    reset_settings_cache()
+    rc = new_brief_module.main(["--from-idea", "anything"])
+    assert rc == 2
+
+
+def test_title_and_from_idea_are_mutually_exclusive(new_brief_module, tmp_project) -> None:  # noqa: ANN001
+    with pytest.raises(SystemExit):
+        new_brief_module.main(["--title", "x", "--from-idea", "y"])
