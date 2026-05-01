@@ -26,6 +26,15 @@
     margin-bottom: 0.5rem;
     font-size: 0.8125rem;
     line-height: 1.4;
+    cursor: pointer;
+    transition: background-color 150ms;
+}
+.flag-row:hover {
+    background: rgb(252 232 232);
+}
+.flag-row:focus {
+    outline: 2px solid rgb(220 38 38);
+    outline-offset: 1px;
 }
 .flag-pattern {
     font-family: ui-monospace, monospace;
@@ -40,6 +49,35 @@
     color: rgb(41 37 36); /* stone-800 */
     margin-top: 0.25rem;
     font-style: italic;
+}
+
+/* Inline flag highlight inside the rendered draft */
+.flag-highlight {
+    background-color: rgb(254 226 226); /* red-100 */
+    color: rgb(127 29 29); /* red-900 */
+    padding: 0.0625rem 0.25rem;
+    border-radius: 0.25rem;
+    border-bottom: 2px solid rgb(220 38 38); /* red-600 */
+    cursor: help;
+    transition: background-color 200ms, color 200ms;
+}
+.flag-highlight:hover {
+    background-color: rgb(252 165 165); /* red-300 */
+}
+.flag-highlight.flag-flash {
+    animation: flag-flash 1.5s ease-out;
+}
+@keyframes flag-flash {
+    0% {
+        background-color: rgb(220 38 38); /* red-600 */
+        color: white;
+        box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.3);
+    }
+    100% {
+        background-color: rgb(254 226 226);
+        color: rgb(127 29 29);
+        box-shadow: none;
+    }
 }
 
 /* Spinner */
