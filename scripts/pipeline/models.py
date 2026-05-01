@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PostStatus(StrEnum):
-    """Lifecycle states for a post — must match `data/schema.md`."""
+    """Lifecycle states for a post."""
 
     IDEA = "idea"
     BRIEF = "brief"
@@ -41,7 +41,13 @@ class RetentionAnswer(BaseModel):
 
 
 class PostRecord(BaseModel):
-    """The 16-field post record. Field names mirror `data/schema.md` exactly."""
+    """The 16-field post record stored in `data/posts.json`.
+
+    Fields: post_id, working_title, niche, hook_pattern_used,
+    structural_framework_used, status, publish_date, open_loop_resolved,
+    ai_tells_check_passed, human_edit_completed, share_count, open_rate,
+    substack_url, created_at, published_at, retention_check_answers.
+    """
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 

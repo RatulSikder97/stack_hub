@@ -126,12 +126,15 @@ non-zero if either is missing.
 
 ## Rituals
 
-| Cadence    | Doc                                       | Time   | Output                              |
-|------------|-------------------------------------------|--------|-------------------------------------|
-| Daily      | `rituals/daily_idea_grooming.md`          | 15 min | One new brief ready                 |
-| Weekly     | `rituals/weekly_postmortem.md`            | 90 min | Metrics logged, 2 ideas promoted    |
-| Monthly    | `rituals/monthly_pattern_audit.md`        | 30 min | `rituals/audits/{YYYY-MM}_pattern_audit.md` |
-| Quarterly  | `rituals/quarterly_voice_drift.md`        | 2 hr   | Calibration <30% gate verified      |
+All four cadences plus the human retention checklist live in
+`rituals/RITUALS.md`.
+
+| Cadence    | Time   | Output                                           |
+|------------|--------|--------------------------------------------------|
+| Daily      | 15 min | One new brief ready                              |
+| Weekly     | 90 min | Metrics logged, 2 ideas promoted                 |
+| Monthly    | 30 min | `rituals/audits/{YYYY-MM}_pattern_audit.md`      |
+| Quarterly  | 2 hr   | Calibration <30% gate verified                   |
 
 ```bash
 python scripts/pattern_audit.py    # 30-day hooks/frameworks audit
@@ -142,7 +145,8 @@ python scripts/calibrate.py        # Sprint-grade voice calibration
 
 ## Voice drift handling
 
-If quarterly calibration detects ≥30%, follow `rituals/quarterly_voice_drift.md`:
+If quarterly calibration detects ≥30%, follow the Quarterly Voice Drift
+Gate in `rituals/RITUALS.md`:
 
 1. Identify which AI samples scored highest and why.
 2. Update `/voice/voice_map.md` and `/prompts/master_system_prompt.md` to
@@ -177,8 +181,8 @@ stack_hub/
 ├── briefs/                    # one .md per upcoming post
 ├── drafts/                    # drafts/{post_id}_v{n}.md
 ├── published/                 # successfully published drafts
-├── data/                      # posts.json + config.json + schema.md
-├── rituals/                   # 4 ritual docs + retention_check.md
+├── data/                      # posts.json + config.json (schema = Pydantic models.py)
+├── rituals/                   # RITUALS.md (all 4 cadences + retention checklist)
 │   └── audits/                # monthly + daily reports
 ├── growth/                    # PHASE_4_ROADMAP.md
 ├── scripts/                   # CLI entry points + pipeline package
