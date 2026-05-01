@@ -42,8 +42,9 @@ _RULES: tuple[_PatternRule, ...] = (
     ),
     _PatternRule(
         name="em_dash_stylistic_flourish",
-        # Em-dash with whitespace on both sides — used as a stylistic break.
-        regex=re.compile(r"(?<=\S)\s+—\s+(?=\S)|(?<=\S)—(?=\S)"),
+        # Em-dash (U+2014) or en-dash (U+2013) used between words as a
+        # stylistic break. Ordinary hyphens are not flagged.
+        regex=re.compile(r"(?<=\S)\s+[—–]\s+(?=\S)|(?<=\S)[—–](?=\S)"),
     ),
     _PatternRule(
         name="lets_explore_or_dive_into",

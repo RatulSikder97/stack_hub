@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     openai_base_url: str = ""
 
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-1.5-pro"
+    gemini_model: str = "gemini-2.5-pro"
 
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-4-7"

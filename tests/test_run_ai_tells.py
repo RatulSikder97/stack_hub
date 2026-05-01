@@ -54,6 +54,31 @@ def test_dirty_draft_fails(run_ai_tells_module, tmp_project) -> None:  # noqa: A
     assert refreshed.status is PostStatus.DRAFTING
 
 
+def test_failure_after_pass_demotes_status(
+    run_ai_tells_module, tmp_project
+) -> None:  # noqa: ANN001
+    """Re-running a failing detector on a previously passed draft must
+    demote status back to drafting so the workflow re-gates publishing."""
+    repo = PostRepository()
+    repo.append(
+        PostRecord(
+            post_id="20260501-flip",
+            status=PostStatus.AI_TELLS_PASS,
+            ai_tells_check_passed=True,
+        )
+    )
+    draft = _write_draft(
+        tmp_project,
+        "20260501-flip",
+        "It's not just hard, it's nearly impossible.\n",
+    )
+    rc = run_ai_tells_module.main([str(draft), "--mock"])
+    assert rc == 1
+    refreshed = repo.get("20260501-flip")
+    assert refreshed.ai_tells_check_passed is False
+    assert refreshed.status is PostStatus.DRAFTING
+
+
 def test_missing_draft_returns_2(run_ai_tells_module) -> None:  # noqa: ANN001
     rc = run_ai_tells_module.main(["nope.md", "--mock"])
     assert rc == 2

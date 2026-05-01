@@ -62,7 +62,14 @@ def update_post_status(post_id: str | None, result: DetectionResult) -> None:
     except PostNotFoundError:
         LOG.debug("Detector ran on draft without matching post record: %s", post_id)
         return
-    new_status = post.status if not result.passed else PostStatus.AI_TELLS_PASS
+    if result.passed:
+        new_status = PostStatus.AI_TELLS_PASS
+    elif post.status == PostStatus.AI_TELLS_PASS:
+        # Previously passed, now failing — demote so the workflow sees it
+        # as a draft that needs revision again.
+        new_status = PostStatus.DRAFTING
+    else:
+        new_status = post.status
     repo.update(
         post.post_id,
         ai_tells_check_passed=result.passed,
