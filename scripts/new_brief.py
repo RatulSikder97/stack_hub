@@ -69,7 +69,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     group.add_argument(
         "--from-idea",
         dest="from_idea",
-        help="Raw idea in any language. Translates + auto-populates the brief.",
+        help=(
+            "Raw idea in any language. Translates + auto-populates the brief. "
+            "Use `-` to read from stdin."
+        ),
+    )
+    group.add_argument(
+        "--from-idea-file",
+        dest="from_idea_file",
+        help="Path to a UTF-8 text file containing the raw idea (any language).",
     )
     parser.add_argument(
         "--target-language",
@@ -77,6 +85,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Target working language (default: en)",
     )
     return parser.parse_args(argv)
+
+
+def _resolve_idea_text(args: argparse.Namespace) -> str | None:
+    """Read the idea text from --from-idea, --from-idea-file, or stdin."""
+    if args.from_idea_file:
+        from pathlib import Path
+
+        path = Path(args.from_idea_file)
+        if not path.exists():
+            LOG.error("Idea file not found: %s", path)
+            return None
+        return path.read_text(encoding="utf-8")
+    if args.from_idea == "-":
+        if sys.stdin.isatty():
+            sys.stderr.write(
+                "Type or paste your idea (any language). Press Ctrl-D when done:\n"
+            )
+        return sys.stdin.read()
+    return args.from_idea
 
 
 def _write_manual_brief(repo: PostRepository, title: str) -> int:
@@ -180,8 +207,12 @@ def main(argv: list[str] | None = None) -> int:
     ensure_dirs()
     repo = PostRepository()
 
-    if args.from_idea:
-        return _write_idea_brief(repo, args.from_idea, args.target_language)
+    if args.from_idea or args.from_idea_file:
+        idea = _resolve_idea_text(args)
+        if idea is None or not idea.strip():
+            LOG.error("Empty idea — nothing to compose.")
+            return 2
+        return _write_idea_brief(repo, idea, args.target_language)
     return _write_manual_brief(repo, args.title)
 
 

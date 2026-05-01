@@ -139,3 +139,101 @@ def test_from_idea_requires_provider_key(
 def test_title_and_from_idea_are_mutually_exclusive(new_brief_module, tmp_project) -> None:  # noqa: ANN001
     with pytest.raises(SystemExit):
         new_brief_module.main(["--title", "x", "--from-idea", "y"])
+
+
+def test_from_idea_file_reads_from_disk(
+    new_brief_module, tmp_project, monkeypatch
+) -> None:  # noqa: ANN001
+    """`--from-idea-file` must load the file and pass it to the composer."""
+    from pipeline.brief_builder import BriefDraft
+    from pipeline.translation import TranslationResult
+
+    idea_file = tmp_project / "idea.md"
+    idea_file.write_text("ডিফল্ট সিদ্ধান্ত গুরুত্বপূর্ণ", encoding="utf-8")
+
+    fake_draft = BriefDraft(
+        working_title="From File Title",
+        one_big_idea="One.",
+        why_now="Why.",
+        target_hook="Confession",
+        target_framework="The Reversal",
+        reader_transformation="Reader.",
+        forbidden_moves=["No clichés."],
+        translation=TranslationResult(
+            original_text="ডিফল্ট",
+            translated_text="Defaults",
+            source_language="bn",
+            target_language="en",
+            needed_translation=True,
+        ),
+    )
+
+    captured: dict[str, str] = {}
+
+    class _FakeComposer:
+        def __init__(self, *_a, **_k) -> None:  # noqa: ANN001
+            pass
+
+        def build(self, idea: str, *, target_language: str = "en") -> BriefDraft:
+            captured["idea"] = idea
+            return fake_draft
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    from pipeline.config import reset_settings_cache
+
+    reset_settings_cache()
+    monkeypatch.setattr(new_brief_module, "build_provider", lambda *_a, **_k: object())
+    monkeypatch.setattr(new_brief_module, "IdeaToBrief", _FakeComposer)
+
+    rc = new_brief_module.main(["--from-idea-file", str(idea_file)])
+    assert rc == 0
+    assert "ডিফল্ট সিদ্ধান্ত গুরুত্বপূর্ণ" in captured["idea"]
+
+
+def test_from_idea_stdin_dash(
+    new_brief_module, tmp_project, monkeypatch
+) -> None:  # noqa: ANN001
+    """`--from-idea -` should read from stdin."""
+    import io
+
+    from pipeline.brief_builder import BriefDraft
+    from pipeline.translation import TranslationResult
+
+    fake_draft = BriefDraft(
+        working_title="Stdin Title",
+        one_big_idea="One.",
+        why_now="Why.",
+        target_hook="Confession",
+        target_framework="The Reversal",
+        reader_transformation="Reader.",
+        forbidden_moves=["No clichés."],
+        translation=TranslationResult(
+            original_text="ডিফল্ট",
+            translated_text="Defaults",
+            source_language="bn",
+            target_language="en",
+            needed_translation=True,
+        ),
+    )
+
+    captured: dict[str, str] = {}
+
+    class _FakeComposer:
+        def __init__(self, *_a, **_k) -> None:  # noqa: ANN001
+            pass
+
+        def build(self, idea: str, *, target_language: str = "en") -> BriefDraft:
+            captured["idea"] = idea
+            return fake_draft
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    from pipeline.config import reset_settings_cache
+
+    reset_settings_cache()
+    monkeypatch.setattr(new_brief_module, "build_provider", lambda *_a, **_k: object())
+    monkeypatch.setattr(new_brief_module, "IdeaToBrief", _FakeComposer)
+    monkeypatch.setattr("sys.stdin", io.StringIO("পাইপ থেকে ধারণা"))
+
+    rc = new_brief_module.main(["--from-idea", "-"])
+    assert rc == 0
+    assert captured["idea"].strip() == "পাইপ থেকে ধারণা"
