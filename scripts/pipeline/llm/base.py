@@ -19,6 +19,18 @@ class MissingAPIKeyError(ProviderError):
     """Provider was selected but its API key is missing."""
 
 
+class RateLimitError(ProviderError):
+    """Provider returned 429 / quota-exceeded.
+
+    `retry_after_seconds` is best-effort parsed from the error payload —
+    callers should display it to the user but not blindly trust it.
+    """
+
+    def __init__(self, message: str, *, retry_after_seconds: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
 @dataclass(frozen=True)
 class GenerationRequest:
     """Inputs for a single text generation call."""
@@ -67,8 +79,56 @@ class LLMProvider(ABC):
         except (ProviderError, KeyboardInterrupt):
             raise
         except Exception as exc:  # noqa: BLE001 — wrap SDK errors
+            if _looks_like_rate_limit(exc):
+                raise RateLimitError(
+                    f"{type(self).__name__} rate-limited: {exc}",
+                    retry_after_seconds=_parse_retry_seconds(str(exc)),
+                ) from exc
             raise ProviderError(f"{type(self).__name__}.generate failed: {exc}") from exc
 
     @abstractmethod
     def _generate(self, request: GenerationRequest) -> str:
         """Subclass-only API. Translate `request` to the SDK call."""
+
+
+# --- Rate-limit detection (cross-provider) --------------------------------
+
+import re as _re
+
+
+def _looks_like_rate_limit(exc: BaseException) -> bool:
+    """Heuristic match across OpenAI / Gemini / Anthropic / Novita errors."""
+    name = type(exc).__name__
+    if name in {"RateLimitError", "ResourceExhausted", "ClientError"}:
+        # google.genai surfaces 429 as ClientError with "RESOURCE_EXHAUSTED"
+        msg = str(exc)
+        if name == "ClientError" and "429" not in msg and "RESOURCE_EXHAUSTED" not in msg:
+            return False
+        return True
+    msg = str(exc).lower()
+    return (
+        "429" in msg
+        or "resource_exhausted" in msg
+        or "rate limit" in msg
+        or "rate_limit" in msg
+        or "quota" in msg
+        or "too many requests" in msg
+    )
+
+
+_RETRY_PATTERNS = (
+    _re.compile(r"retry[_ -]?after[\":\s]+(\d+(?:\.\d+)?)", _re.IGNORECASE),
+    _re.compile(r"retry in\s+(\d+(?:\.\d+)?)\s*s", _re.IGNORECASE),
+    _re.compile(r"retryDelay['\":\s]+(\d+(?:\.\d+)?)s", _re.IGNORECASE),
+)
+
+
+def _parse_retry_seconds(message: str) -> float | None:
+    for pattern in _RETRY_PATTERNS:
+        match = pattern.search(message)
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                continue
+    return None

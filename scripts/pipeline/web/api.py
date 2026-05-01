@@ -188,6 +188,20 @@ def _ensure_provider(provider_factory: ProviderFactory) -> LLMProvider:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def _rate_limit_http(exc: RateLimitError) -> HTTPException:
+    """Convert a provider RateLimitError into a 429 response."""
+    seconds = exc.retry_after_seconds
+    if seconds is None or seconds <= 0:
+        seconds = 30.0
+    headers = {"Retry-After": str(int(seconds))}
+    detail = (
+        f"Rate-limited by provider. Retry in ~{int(seconds)}s. "
+        "Free-tier Gemini: ~10–20 req/min on 2.5-flash. "
+        "Upgrade billing or switch model in .env."
+    )
+    return HTTPException(status_code=429, detail=detail, headers=headers)
+
+
 # --- App factory -----------------------------------------------------------
 
 
@@ -237,7 +251,7 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
     @app.post(
         "/api/translate",
         response_model=TranslateResponse,
-        responses={400: {"model": ErrorResponse}},
+        responses={400: {"model": ErrorResponse}, 429: {"model": ErrorResponse}},
     )
     def translate(payload: TranslateRequest) -> TranslateResponse:
         if not payload.text.strip():
@@ -246,6 +260,8 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
         translator = Translator(provider, max_tokens=get_settings().llm_max_tokens_voice)
         try:
             result = translator.translate(payload.text, target_language=payload.target_lang)
+        except RateLimitError as exc:
+            raise _rate_limit_http(exc) from exc
         except TranslationParseError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         return TranslateResponse(
@@ -261,7 +277,11 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
     @app.post(
         "/api/brief",
         response_model=BriefResponse,
-        responses={400: {"model": ErrorResponse}, 502: {"model": ErrorResponse}},
+        responses={
+            400: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+            502: {"model": ErrorResponse},
+        },
     )
     def compose_brief(payload: BriefRequest) -> BriefResponse:
         if not payload.idea.strip():
@@ -273,6 +293,8 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
         )
         try:
             draft = composer.build(payload.idea, target_language=payload.target_lang)
+        except RateLimitError as exc:
+            raise _rate_limit_http(exc) from exc
         except BriefBuildError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         if not draft.working_title.strip():
@@ -324,7 +346,11 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
     @app.post(
         "/api/draft/{post_id}",
         response_model=DraftResponse,
-        responses={404: {"model": ErrorResponse}, 502: {"model": ErrorResponse}},
+        responses={
+            404: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+            502: {"model": ErrorResponse},
+        },
     )
     def generate_draft(post_id: str) -> DraftResponse:
         repo = PostRepository()
@@ -340,12 +366,15 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
             brand_name=settings.brand_name, rotation=rotation
         )
         user_prompt = _build_draft_user_prompt(post_id)
-        text = provider.generate(
-            system_prompt,
-            user_prompt,
-            max_tokens=settings.llm_max_tokens_draft,
-            temperature=settings.llm_temperature,
-        )
+        try:
+            text = provider.generate(
+                system_prompt,
+                user_prompt,
+                max_tokens=settings.llm_max_tokens_draft,
+                temperature=settings.llm_temperature,
+            )
+        except RateLimitError as exc:
+            raise _rate_limit_http(exc) from exc
         draft_path = _paths.DRAFTS_DIR / f"{post_id}_v1.md"
         draft_path.parent.mkdir(parents=True, exist_ok=True)
         draft_path.write_text(text.rstrip() + "\n", encoding="utf-8")
@@ -388,6 +417,8 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
                 )
                 detector_name = "LLMJudgeDetector"
                 result = detector.detect(draft_text)
+            except RateLimitError as exc:
+                raise _rate_limit_http(exc) from exc
             except (MissingAPIKeyError, DetectorParseError):
                 LOG.warning("LLM detector failed; falling back to local kill list.")
                 result = LocalKillListDetector().detect(draft_text)

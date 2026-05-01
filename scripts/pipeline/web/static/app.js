@@ -109,6 +109,14 @@
     });
 
     // --- API helpers ----------------------------------------------------
+    class RateLimitedError extends Error {
+        constructor(detail, retryAfter) {
+            super(detail || 'Rate limited');
+            this.name = 'RateLimitedError';
+            this.retryAfter = retryAfter;
+        }
+    }
+
     async function apiPost(path, body) {
         const res = await fetch(path, {
             method: 'POST',
@@ -117,9 +125,36 @@
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({ detail: res.statusText }));
+            if (res.status === 429) {
+                const retryAfter = parseInt(res.headers.get('Retry-After') || '30', 10);
+                throw new RateLimitedError(err.detail || 'Rate limited', retryAfter);
+            }
             throw new Error(err.detail || `HTTP ${res.status}`);
         }
         return res.json();
+    }
+
+    /**
+     * Disable the given button for `seconds`, showing a live countdown so
+     * the user can see exactly when the rate limit lifts.
+     */
+    function startCountdown(button, seconds, originalLabel) {
+        let remaining = Math.max(1, Math.ceil(seconds));
+        button.disabled = true;
+        const update = () => {
+            button.innerHTML = `⏳ wait ${remaining}s`;
+            remaining -= 1;
+        };
+        update();
+        const handle = setInterval(() => {
+            if (remaining <= 0) {
+                clearInterval(handle);
+                button.disabled = false;
+                button.innerHTML = originalLabel;
+                return;
+            }
+            update();
+        }, 1000);
     }
 
     // --- Compose brief --------------------------------------------------
@@ -129,6 +164,7 @@
             log('Idea is empty', 'error');
             return;
         }
+        const originalLabel = '✨ Compose Brief';
         composeBtn.disabled = true;
         composeBtn.innerHTML = '<span class="spin"></span> Composing…';
         log('Composing brief from idea…');
@@ -147,11 +183,17 @@
             setStepStatus('draft', 'idle');
             setStepStatus('detect', 'idle');
             log(`Brief ready: ${data.working_title}`, 'success');
-        } catch (e) {
-            log(`Brief failed: ${e.message}`, 'error');
-        } finally {
             composeBtn.disabled = false;
-            composeBtn.innerHTML = '✨ Compose Brief';
+            composeBtn.innerHTML = originalLabel;
+        } catch (e) {
+            if (e instanceof RateLimitedError) {
+                log(`Rate limited: ${e.message}`, 'error');
+                startCountdown(composeBtn, e.retryAfter, originalLabel);
+            } else {
+                log(`Brief failed: ${e.message}`, 'error');
+                composeBtn.disabled = false;
+                composeBtn.innerHTML = originalLabel;
+            }
         }
     });
 
@@ -199,6 +241,7 @@
     // --- Generate draft -------------------------------------------------
     draftBtn.addEventListener('click', async () => {
         if (!state.postId) return;
+        const originalLabel = draftBtn.innerHTML;
         draftBtn.disabled = true;
         setStepStatus('draft', 'busy');
         log('Generating draft (this may take 20-60 seconds)…');
@@ -215,11 +258,17 @@
             setStepStatus('detect', 'idle');
             detectBtn.disabled = false;
             log(`Draft ready: ${data.word_count} words`, 'success');
-        } catch (e) {
-            setStepStatus('draft', 'fail');
-            log(`Draft failed: ${e.message}`, 'error');
-        } finally {
             draftBtn.disabled = false;
+        } catch (e) {
+            if (e instanceof RateLimitedError) {
+                setStepStatus('draft', 'fail');
+                log(`Rate limited: ${e.message}`, 'error');
+                startCountdown(draftBtn, e.retryAfter, originalLabel);
+            } else {
+                setStepStatus('draft', 'fail');
+                log(`Draft failed: ${e.message}`, 'error');
+                draftBtn.disabled = false;
+            }
         }
     });
 
@@ -280,6 +329,7 @@
     // --- Detector -------------------------------------------------------
     detectBtn.addEventListener('click', async () => {
         if (!state.postId) return;
+        const originalLabel = detectBtn.innerHTML;
         detectBtn.disabled = true;
         setStepStatus('detect', 'busy');
         log('Running AI-tells detector…');
@@ -296,11 +346,17 @@
                     : `Detector FAIL: ${data.flags.length} flags`,
                 data.passed ? 'success' : 'error',
             );
-        } catch (e) {
-            setStepStatus('detect', 'fail');
-            log(`Detector failed: ${e.message}`, 'error');
-        } finally {
             detectBtn.disabled = false;
+        } catch (e) {
+            if (e instanceof RateLimitedError) {
+                setStepStatus('detect', 'fail');
+                log(`Rate limited: ${e.message}`, 'error');
+                startCountdown(detectBtn, e.retryAfter, originalLabel);
+            } else {
+                setStepStatus('detect', 'fail');
+                log(`Detector failed: ${e.message}`, 'error');
+                detectBtn.disabled = false;
+            }
         }
     });
 
