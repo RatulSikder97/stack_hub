@@ -94,9 +94,14 @@ the next CLI command.
 ## Web panel (recommended for non-CLI use)
 
 ```bash
-python scripts/serve.py            # http://localhost:8000
-python scripts/serve.py --port 8080
+python scripts/serve.py            # http://localhost:8765 (auto-bumps if busy)
+python scripts/serve.py --port 9000
 ```
+
+> **Note:** the default port is **8765**, not 8000 — 8000 is commonly held
+> by Docker, dev servers, etc. If 8765 is also taken, `serve.py` walks
+> forward through the next 20 ports until it finds one free, and prints
+> the actual URL it bound to.
 
 The panel gives you a single page with a microphone button (uses your
 browser's Web Speech API — supports Bengali, Hindi, English, and others),
