@@ -3,96 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ brand }} — Pipeline</title>
+    <title>{{ brand }} — Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="bg-stone-50 text-stone-900 antialiased min-h-screen">
-    <div class="max-w-6xl mx-auto px-6 py-8">
-        <header class="flex items-center justify-between mb-8">
-            <div>
-                <h1 class="text-2xl font-semibold tracking-tight">{{ brand }}</h1>
-                <p class="text-sm text-stone-500 mt-1">Substack pipeline · idea → brief → draft → detect</p>
+<body class="studio-bg text-zinc-200 antialiased min-h-screen">
+    <div class="max-w-7xl mx-auto px-6 py-6">
+        <header class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-white font-bold">
+                    {{ brand[0]|upper }}
+                </div>
+                <div>
+                    <h1 class="text-lg font-semibold tracking-tight text-white">{{ brand }} Studio</h1>
+                    <p class="text-xs text-zinc-500 mt-0.5">idea → brief → draft → detect</p>
+                </div>
             </div>
             <div class="flex items-center gap-3">
-                <span class="px-3 py-1 rounded-full bg-stone-900 text-stone-50 text-xs font-mono">
+                <span class="px-3 py-1 rounded-full bg-zinc-800/80 text-zinc-300 text-xs font-mono border border-zinc-700">
                     {{ provider }} / {{ model }}
                 </span>
                 {% if not key_present %}
-                <span class="px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-medium">
+                <span class="px-3 py-1 rounded-full bg-amber-500/10 text-amber-300 text-xs font-medium border border-amber-700/40">
                     no API key
                 </span>
                 {% endif %}
             </div>
         </header>
 
-        <main class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <!-- LEFT: Input panel -->
+        <main class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+            <!-- LEFT: Studio panel -->
             <section class="lg:col-span-2 space-y-4">
-                <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-5">
-                    <div class="flex items-center justify-between mb-3">
-                        <label class="text-sm font-medium text-stone-700">Your idea</label>
+                <!-- Recording studio card -->
+                <div class="studio-card p-6 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center gap-2">
-                            <select id="lang" class="text-xs border border-stone-200 rounded-md px-2 py-1 bg-white">
+                            <span id="recDot" class="rec-dot"></span>
+                            <span id="recState" class="text-xs uppercase tracking-widest font-semibold text-zinc-400">Ready</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="recTimer" class="text-xs font-mono text-zinc-500">00:00</span>
+                            <select id="lang" class="text-xs border border-zinc-700 rounded-md px-2 py-1 bg-zinc-900 text-zinc-300 focus:outline-none focus:border-violet-500">
                                 <option value="bn-BD" selected>বাংলা (BD)</option>
                                 <option value="bn-IN">বাংলা (IN)</option>
                                 <option value="en-US">English</option>
                                 <option value="hi-IN">हिन्दी</option>
                                 <option value="auto">other / auto</option>
                             </select>
-                            <button id="micBtn" type="button"
-                                class="rounded-full w-9 h-9 flex items-center justify-center bg-stone-900 text-white hover:bg-stone-700 transition"
-                                title="Click to dictate">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        </div>
+                    </div>
+
+                    <!-- Centerpiece: mic + visualizer -->
+                    <div class="flex flex-col items-center justify-center py-6">
+                        <div class="mic-stage">
+                            <canvas id="micVisualizer" width="280" height="280" class="visualizer-canvas"></canvas>
+                            <button id="micBtn" type="button" class="mic-button" title="Click to record">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
                                     <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
                                     <line x1="12" y1="19" x2="12" y2="22"/>
                                 </svg>
                             </button>
                         </div>
+                        <div id="micStatus" class="text-xs text-zinc-500 mt-3 h-4"></div>
                     </div>
-                    <textarea id="ideaText" rows="9"
-                        class="w-full border border-stone-200 rounded-lg p-3 text-sm font-sans resize-y focus:outline-none focus:ring-2 focus:ring-stone-400 leading-relaxed"
-                        placeholder="তোমার ধারণা বাংলায় লেখো বা মাইক্রোফোনে বলো..."></textarea>
-                    <div class="flex items-center justify-between mt-3">
-                        <span id="micStatus" class="text-xs text-stone-500"></span>
-                        <button id="composeBtn" type="button"
-                            class="px-4 py-2 rounded-lg bg-stone-900 text-white text-sm font-medium hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
-                            ✨ Compose Brief
-                        </button>
+
+                    <!-- Live transcript -->
+                    <div class="mt-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs uppercase tracking-wider text-zinc-500 font-semibold" for="ideaText">Transcript</label>
+                            <div class="flex items-center gap-2">
+                                <button id="clearBtn" type="button" class="text-xs text-zinc-500 hover:text-zinc-300 transition" title="Clear transcript">
+                                    Clear
+                                </button>
+                                <button id="polishBtn" type="button" class="text-xs text-violet-400 hover:text-violet-300 transition" title="Re-punctuate via LLM">
+                                    ✨ Polish
+                                </button>
+                            </div>
+                        </div>
+                        <textarea id="ideaText" rows="6"
+                            class="studio-textarea"
+                            placeholder="তোমার ধারণা বাংলায় বলো বা টাইপ করো... auto-punctuation kicks in when you pause."></textarea>
                     </div>
+
+                    <button id="composeBtn" type="button"
+                        class="studio-primary-btn mt-4">
+                        ✨ Compose Brief
+                    </button>
                 </div>
 
-                <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-5">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-sm font-medium text-stone-700">Pipeline</h3>
-                        <span id="postIdLabel" class="text-xs text-stone-400 font-mono"></span>
+                <!-- Pipeline buttons -->
+                <div class="studio-card p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Pipeline</h3>
+                        <span id="postIdLabel" class="text-xs text-zinc-600 font-mono"></span>
                     </div>
                     <div class="space-y-2">
-                        <button id="draftBtn" type="button" disabled
-                            class="w-full text-left px-3 py-2 rounded-lg border border-stone-200 text-sm hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-between">
+                        <button id="draftBtn" type="button" disabled class="studio-step-btn">
                             <span>📝 Generate Draft</span>
-                            <span class="step-status text-stone-400" data-step="draft">—</span>
+                            <span class="step-status text-zinc-500" data-step="draft">—</span>
                         </button>
-                        <button id="detectBtn" type="button" disabled
-                            class="w-full text-left px-3 py-2 rounded-lg border border-stone-200 text-sm hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-between">
-                            <span>🔍 Run AI-Tells Detector</span>
-                            <span class="step-status text-stone-400" data-step="detect">—</span>
+                        <button id="detectBtn" type="button" disabled class="studio-step-btn">
+                            <span>🔍 Run Detector</span>
+                            <span class="step-status text-zinc-500" data-step="detect">—</span>
                         </button>
                     </div>
-                    <p class="text-xs text-stone-500 mt-3 leading-relaxed">
-                        After detector passes, edit the draft in
-                        <code class="bg-stone-100 px-1 py-0.5 rounded">drafts/</code>, run the
-                        retention check, then publish manually on Substack and log via CLI.
-                    </p>
                 </div>
             </section>
 
             <!-- RIGHT: Output panel -->
             <section class="lg:col-span-3">
-                <div class="bg-white rounded-2xl shadow-sm border border-stone-200 min-h-[640px]">
-                    <div class="border-b border-stone-200 flex items-center gap-1 px-2 pt-2 overflow-x-auto">
+                <div class="studio-card min-h-[680px]">
+                    <div class="border-b border-zinc-800 flex items-center gap-1 px-2 pt-2 overflow-x-auto">
                         <button class="tab active" data-tab="brief">Brief</button>
                         <button class="tab" data-tab="draft">Draft</button>
                         <button class="tab" data-tab="detect">Detector</button>
@@ -100,24 +126,24 @@
                         <button class="tab" data-tab="log">Log</button>
                     </div>
 
-                    <div id="pane-brief" class="pane p-6 prose prose-stone max-w-none">
-                        <p class="text-stone-400 italic">Compose a brief on the left to populate this pane.</p>
+                    <div id="pane-brief" class="pane p-6 prose prose-invert max-w-none">
+                        <p class="text-zinc-600 italic">Compose a brief on the left to populate this pane.</p>
                     </div>
-                    <div id="pane-draft" class="pane p-6 prose prose-stone max-w-none hidden">
-                        <p class="text-stone-400 italic">Generate a draft once a brief exists.</p>
+                    <div id="pane-draft" class="pane p-6 prose prose-invert max-w-none hidden">
+                        <p class="text-zinc-600 italic">Generate a draft once a brief exists.</p>
                     </div>
                     <div id="pane-detect" class="pane p-6 hidden">
-                        <p class="text-stone-400 italic">Run the detector after generating a draft.</p>
+                        <p class="text-zinc-600 italic">Run the detector after generating a draft.</p>
                     </div>
 
                     <div id="pane-translate" class="pane p-6 hidden">
                         <div class="mb-5">
                             <div class="flex items-center justify-between mb-2">
-                                <label class="text-sm font-medium text-stone-700" for="translateInput">
+                                <label class="text-xs uppercase tracking-wider text-zinc-500 font-semibold" for="translateInput">
                                     Ad-hoc translate
                                 </label>
                                 <div class="flex items-center gap-2">
-                                    <select id="translateTarget" class="text-xs border border-stone-200 rounded-md px-2 py-1 bg-white">
+                                    <select id="translateTarget" class="text-xs border border-zinc-700 rounded-md px-2 py-1 bg-zinc-900 text-zinc-300 focus:outline-none focus:border-violet-500">
                                         <option value="en" selected>→ English</option>
                                         <option value="bn">→ বাংলা</option>
                                         <option value="hi">→ हिन्दी</option>
@@ -125,17 +151,17 @@
                                         <option value="fr">→ Français</option>
                                     </select>
                                     <button id="translateBtn" type="button"
-                                        class="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-medium hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                                        class="px-3 py-1.5 rounded-md bg-violet-600 text-white text-xs font-medium hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition">
                                         🌐 Translate
                                     </button>
                                 </div>
                             </div>
                             <textarea id="translateInput" rows="3"
-                                class="w-full border border-stone-200 rounded-lg p-3 text-sm font-sans resize-y focus:outline-none focus:ring-2 focus:ring-stone-400 leading-relaxed"
+                                class="studio-textarea"
                                 placeholder="যে কোন ভাষায় টেক্সট লিখুন — translation appears below."></textarea>
                         </div>
                         <div id="translateResult">
-                            <p class="text-stone-400 italic text-sm">
+                            <p class="text-zinc-600 italic text-sm">
                                 When you compose a brief from a non-English idea, the translation
                                 shows up here automatically. You can also translate ad-hoc text
                                 using the box above.
@@ -144,14 +170,14 @@
                     </div>
 
                     <div id="pane-log" class="pane p-6 font-mono text-xs space-y-1 hidden">
-                        <p class="text-stone-400 italic">Pipeline events will appear here.</p>
+                        <p class="text-zinc-600 italic">Pipeline events will appear here.</p>
                     </div>
                 </div>
             </section>
         </main>
 
-        <footer class="mt-8 text-xs text-stone-400 text-center">
-            Localhost only · refresh anytime · all artifacts stored in <code>data/</code>, <code>briefs/</code>, <code>drafts/</code>
+        <footer class="mt-6 text-xs text-zinc-600 text-center">
+            Localhost only · all artifacts live in <code class="text-zinc-500">data/</code>, <code class="text-zinc-500">briefs/</code>, <code class="text-zinc-500">drafts/</code>
         </footer>
     </div>
 
