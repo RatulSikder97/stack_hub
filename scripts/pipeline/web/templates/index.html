@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ brand }} — Pipeline</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-stone-50 text-stone-900 antialiased min-h-screen">
+    <div class="max-w-6xl mx-auto px-6 py-8">
+        <header class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-semibold tracking-tight">{{ brand }}</h1>
+                <p class="text-sm text-stone-500 mt-1">Substack pipeline · idea → brief → draft → detect</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="px-3 py-1 rounded-full bg-stone-900 text-stone-50 text-xs font-mono">
+                    {{ provider }} / {{ model }}
+                </span>
+                {% if not key_present %}
+                <span class="px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-medium">
+                    no API key
+                </span>
+                {% endif %}
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <!-- LEFT: Input panel -->
+            <section class="lg:col-span-2 space-y-4">
+                <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-sm font-medium text-stone-700">Your idea</label>
+                        <div class="flex items-center gap-2">
+                            <select id="lang" class="text-xs border border-stone-200 rounded-md px-2 py-1 bg-white">
+                                <option value="bn-BD" selected>বাংলা (BD)</option>
+                                <option value="bn-IN">বাংলা (IN)</option>
+                                <option value="en-US">English</option>
+                                <option value="hi-IN">हिन्दी</option>
+                                <option value="auto">other / auto</option>
+                            </select>
+                            <button id="micBtn" type="button"
+                                class="rounded-full w-9 h-9 flex items-center justify-center bg-stone-900 text-white hover:bg-stone-700 transition"
+                                title="Click to dictate">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+                                    <line x1="12" y1="19" x2="12" y2="22"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="ideaText" rows="9"
+                        class="w-full border border-stone-200 rounded-lg p-3 text-sm font-sans resize-y focus:outline-none focus:ring-2 focus:ring-stone-400 leading-relaxed"
+                        placeholder="তোমার ধারণা বাংলায় লেখো বা মাইক্রোফোনে বলো..."></textarea>
+                    <div class="flex items-center justify-between mt-3">
+                        <span id="micStatus" class="text-xs text-stone-500"></span>
+                        <button id="composeBtn" type="button"
+                            class="px-4 py-2 rounded-lg bg-stone-900 text-white text-sm font-medium hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                            ✨ Compose Brief
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-5">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-stone-700">Pipeline</h3>
+                        <span id="postIdLabel" class="text-xs text-stone-400 font-mono"></span>
+                    </div>
+                    <div class="space-y-2">
+                        <button id="draftBtn" type="button" disabled
+                            class="w-full text-left px-3 py-2 rounded-lg border border-stone-200 text-sm hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-between">
+                            <span>📝 Generate Draft</span>
+                            <span class="step-status text-stone-400" data-step="draft">—</span>
+                        </button>
+                        <button id="detectBtn" type="button" disabled
+                            class="w-full text-left px-3 py-2 rounded-lg border border-stone-200 text-sm hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-between">
+                            <span>🔍 Run AI-Tells Detector</span>
+                            <span class="step-status text-stone-400" data-step="detect">—</span>
+                        </button>
+                    </div>
+                    <p class="text-xs text-stone-500 mt-3 leading-relaxed">
+                        After detector passes, edit the draft in
+                        <code class="bg-stone-100 px-1 py-0.5 rounded">drafts/</code>, run the
+                        retention check, then publish manually on Substack and log via CLI.
+                    </p>
+                </div>
+            </section>
+
+            <!-- RIGHT: Output panel -->
+            <section class="lg:col-span-3">
+                <div class="bg-white rounded-2xl shadow-sm border border-stone-200 min-h-[640px]">
+                    <div class="border-b border-stone-200 flex items-center gap-1 px-2 pt-2">
+                        <button class="tab active" data-tab="brief">Brief</button>
+                        <button class="tab" data-tab="draft">Draft</button>
+                        <button class="tab" data-tab="detect">Detector</button>
+                        <button class="tab" data-tab="log">Log</button>
+                    </div>
+
+                    <div id="pane-brief" class="pane p-6 prose prose-stone max-w-none">
+                        <p class="text-stone-400 italic">Compose a brief on the left to populate this pane.</p>
+                    </div>
+                    <div id="pane-draft" class="pane p-6 prose prose-stone max-w-none hidden">
+                        <p class="text-stone-400 italic">Generate a draft once a brief exists.</p>
+                    </div>
+                    <div id="pane-detect" class="pane p-6 hidden">
+                        <p class="text-stone-400 italic">Run the detector after generating a draft.</p>
+                    </div>
+                    <div id="pane-log" class="pane p-6 font-mono text-xs space-y-1 hidden">
+                        <p class="text-stone-400 italic">Pipeline events will appear here.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="mt-8 text-xs text-stone-400 text-center">
+            Localhost only · refresh anytime · all artifacts stored in <code>data/</code>, <code>briefs/</code>, <code>drafts/</code>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

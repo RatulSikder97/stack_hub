@@ -1,0 +1,81 @@
+/* Tab strip */
+.tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(120 113 108); /* stone-500 */
+    border-bottom: 2px solid transparent;
+    transition: color 150ms, border-color 150ms;
+    background: transparent;
+    cursor: pointer;
+}
+.tab:hover {
+    color: rgb(41 37 36); /* stone-800 */
+}
+.tab.active {
+    color: rgb(28 25 23); /* stone-900 */
+    border-bottom-color: rgb(28 25 23);
+}
+
+/* Detector flag styling */
+.flag-row {
+    border-left: 3px solid rgb(220 38 38); /* red-600 */
+    background: rgb(254 242 242); /* red-50 */
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.375rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+}
+.flag-pattern {
+    font-family: ui-monospace, monospace;
+    font-weight: 600;
+    color: rgb(127 29 29); /* red-900 */
+}
+.flag-line {
+    color: rgb(120 113 108); /* stone-500 */
+    font-size: 0.75rem;
+}
+.flag-snippet {
+    color: rgb(41 37 36); /* stone-800 */
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+/* Spinner */
+.spin {
+    display: inline-block;
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: -2px;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Mic recording state */
+#micBtn.recording {
+    background: rgb(220 38 38);
+    animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
+/* Step status pills */
+.step-status[data-state="ok"] { color: rgb(22 101 52); }       /* green-800 */
+.step-status[data-state="fail"] { color: rgb(153 27 27); }     /* red-800 */
+.step-status[data-state="busy"] { color: rgb(120 53 15); }     /* amber-900 */
+
+/* Log lines */
+#pane-log .log-line {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid rgb(245 245 244);
+}
+#pane-log .log-line.error { color: rgb(153 27 27); }
+#pane-log .log-line.success { color: rgb(22 101 52); }

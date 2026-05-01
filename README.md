@@ -84,12 +84,55 @@ Set `LLM_PROVIDER` in `.env` to one of:
 | Provider  | Env var pair                                | Notes                                              |
 |-----------|---------------------------------------------|----------------------------------------------------|
 | openai    | `OPENAI_API_KEY`, `OPENAI_MODEL`            | Uses Responses API. Default model `gpt-4.1`.       |
-| gemini    | `GEMINI_API_KEY`, `GEMINI_MODEL`            | Uses `google-genai`. Default `gemini-1.5-pro`.     |
+| gemini    | `GEMINI_API_KEY`, `GEMINI_MODEL`            | Uses `google-genai`. Default `gemini-2.5-flash`.   |
 | anthropic | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`      | Uses Messages API. Default `claude-opus-4-7`.      |
 | novita    | `NOVITA_API_KEY`, `NOVITA_MODEL`, `NOVITA_BASE_URL` | OpenAI-compatible at `/v3/openai`.        |
 
 Switch providers without restarting anything else: change the env var, run
 the next CLI command.
+
+## Web panel (recommended for non-CLI use)
+
+```bash
+python scripts/serve.py            # http://localhost:8000
+python scripts/serve.py --port 8080
+```
+
+The panel gives you a single page with a microphone button (uses your
+browser's Web Speech API — supports Bengali, Hindi, English, and others),
+a textarea for typing or pasting an idea, and three pipeline buttons
+(**Compose Brief → Generate Draft → Run Detector**). Outputs render
+inline with markdown.
+
+* Voice input works in Chrome and Safari (Bengali = `bn-BD` / `bn-IN`).
+* Pipeline runs synchronously per stage; expect 20–60s per LLM call.
+* All artifacts land on disk under `briefs/`, `drafts/`, `data/posts.json`
+  exactly like the CLI.
+* `localhost` only — no auth. Pass `--host 0.0.0.0` to expose on LAN
+  (only do this on a trusted network).
+
+## Multilingual idea entry (CLI)
+
+You can feed any-language ideas to the CLI in three ways:
+
+```bash
+# Inline
+python scripts/new_brief.py --from-idea "তোমার বাংলা ধারণা"
+
+# File (best for paragraphs)
+python scripts/new_brief.py --from-idea-file my_idea.md
+
+# Stdin / paste
+python scripts/new_brief.py --from-idea -
+```
+
+Translation is automatic — the original is preserved inside the brief
+under `## Source Idea`, and the English version drives the rest of the
+pipeline. For ad-hoc translation alone:
+
+```bash
+python scripts/translate.py --text "শুধু অনুবাদ করতে চাই" --to en
+```
 
 ## IDEA → PUBLISH workflow
 
