@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stack-hub-pipeline"
+version = "1.0.0"
+description = "Voice-preserving Substack content pipeline with multi-provider LLM support."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Stack Hub" }]
+license = { text = "Proprietary" }
+dependencies = [
+    "anthropic>=0.40.0",
+    "openai>=1.40.0",
+    "google-genai>=0.3.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "jinja2>=3.1.0",
+    "python-frontmatter>=1.1.0",
+    "markdown>=3.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "mypy>=1.8.0",
+    "ruff>=0.4.0",
+]
+
+[tool.setuptools]
+package-dir = { "" = "scripts" }
+
+[tool.setuptools.packages.find]
+where = ["scripts"]
+include = ["pipeline*"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["scripts"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["__pycache__", ".mypy_cache", ".pytest_cache"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "PL", "RUF"]
+ignore = [
+    "PLR0913", # too many arguments — fine for CLI argparse handlers
+    "PLR2004", # magic-value comparison — common in tests
+    "E501",    # long lines — ruff format handles this
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004", "S101"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_decorators = false
+mypy_path = "scripts"
+namespace_packages = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["google.*", "frontmatter", "markdown"]
+ignore_missing_imports = true

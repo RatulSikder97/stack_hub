@@ -1,18 +1,19 @@
-# Voice Map (Bootstrap Baseline)
+# Voice Map
 
 ## Per-Writer Fingerprints
 
-### oliver_burkeman (baseline proxy)
-Cadence should be measured and reflective, with short paragraphs that earn their abstractions through concrete observation. Preferred posture is anti-productivity theater: expose hidden assumptions and show the emotional cost of optimization. Signature moves include naming a subtle inner contradiction, reframing urgency as a choice, and ending sections with a practical but unglamorous next step. Do not inherit moral superiority or abstract sermonizing.
+### morgan_housel
+Cadence runs at roughly 13 words per sentence across 5 posts (1,086 words total). Distinctive vocabulary skews toward: people, post, wrong, story, same, most, time, example. Dominant signature moves to study before drafting: short paragraphs, named frictions, and unglamorous next steps. Do not inherit any move that flattens nuance or substitutes confidence for evidence. NOTE: Generated locally without LLM — re-run extract_voice with a provider key for a richer fingerprint.
 
-### morgan_housel (baseline proxy)
-Cadence should be plainspoken and economical, with examples that make risk and incentives obvious. Preferred posture is probabilistic rather than absolute: explain behavior with incentives and uncertainty. Signature moves include one memorable anecdote, one clean principle, and one inversion of common wisdom. Do not inherit overconfident predictions or macho certainty.
+### oliver_burkeman
+Cadence runs at roughly 13 words per sentence across 5 posts (1,074 words total). Distinctive vocabulary skews toward: post, version, before, real, most, work, patience, placeholder. Dominant signature moves to study before drafting: short paragraphs, named frictions, and unglamorous next steps. Do not inherit any move that flattens nuance or substitutes confidence for evidence. NOTE: Generated locally without LLM — re-run extract_voice with a provider key for a richer fingerprint.
 
-### shane_parrish (baseline proxy)
-Cadence should be clear and structured, with ideas decomposed into models readers can reuse. Preferred posture is decision-quality over hot takes. Signature moves include tightening definitions, contrasting first-order vs second-order consequences, and operationalizing concepts into a small checklist. Do not inherit rigid frameworks that flatten nuance.
+### shane_parrish
+Cadence runs at roughly 11 words per sentence across 5 posts (1,137 words total). Distinctive vocabulary skews toward: decision, most, post, decisions, wrong, people, real, thinking. Dominant signature moves to study before drafting: short paragraphs, named frictions, and unglamorous next steps. Do not inherit any move that flattens nuance or substitutes confidence for evidence. NOTE: Generated locally without LLM — re-run extract_voice with a provider key for a richer fingerprint.
 
 ## Brand Voice Synthesis
-Write like a calm operator helping readers think better under pressure. Start with a concrete friction point, then widen into the principle behind it, then return to an action readers can apply this week. Prefer clean sentences over flourish, and use specificity over motivational tone. Avoid sounding like a coach, guru, or therapist. Use one strong analogy per post, not many weak ones. Let uncertainty appear when it is real, but always offer decision leverage: what to notice, what to ignore, and what to do next.
+
+Synthesizing across 3 writer(s) (morgan_housel, oliver_burkeman, shane_parrish) covering 15 posts and 3,297 words: write like a calm operator helping a thoughtful reader make a clearer decision this week. Average sentence length is 12 words; favor concrete observation over abstraction. Lead with the friction, name the principle behind it, return to one action a reader can apply by the next morning. The voice should feel decided but not certain, specific but not narrow, and warm without being soft. (Local synthesis — re-run with provider for a real model-driven distillation.)
 
 ## Anti-Voice
 - Do not write motivational slogans disguised as insight.
