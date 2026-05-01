@@ -92,10 +92,11 @@
             <!-- RIGHT: Output panel -->
             <section class="lg:col-span-3">
                 <div class="bg-white rounded-2xl shadow-sm border border-stone-200 min-h-[640px]">
-                    <div class="border-b border-stone-200 flex items-center gap-1 px-2 pt-2">
+                    <div class="border-b border-stone-200 flex items-center gap-1 px-2 pt-2 overflow-x-auto">
                         <button class="tab active" data-tab="brief">Brief</button>
                         <button class="tab" data-tab="draft">Draft</button>
                         <button class="tab" data-tab="detect">Detector</button>
+                        <button class="tab" data-tab="translate">Translate</button>
                         <button class="tab" data-tab="log">Log</button>
                     </div>
 
@@ -108,6 +109,40 @@
                     <div id="pane-detect" class="pane p-6 hidden">
                         <p class="text-stone-400 italic">Run the detector after generating a draft.</p>
                     </div>
+
+                    <div id="pane-translate" class="pane p-6 hidden">
+                        <div class="mb-5">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-sm font-medium text-stone-700" for="translateInput">
+                                    Ad-hoc translate
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <select id="translateTarget" class="text-xs border border-stone-200 rounded-md px-2 py-1 bg-white">
+                                        <option value="en" selected>→ English</option>
+                                        <option value="bn">→ বাংলা</option>
+                                        <option value="hi">→ हिन्दी</option>
+                                        <option value="es">→ Español</option>
+                                        <option value="fr">→ Français</option>
+                                    </select>
+                                    <button id="translateBtn" type="button"
+                                        class="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-medium hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                                        🌐 Translate
+                                    </button>
+                                </div>
+                            </div>
+                            <textarea id="translateInput" rows="3"
+                                class="w-full border border-stone-200 rounded-lg p-3 text-sm font-sans resize-y focus:outline-none focus:ring-2 focus:ring-stone-400 leading-relaxed"
+                                placeholder="যে কোন ভাষায় টেক্সট লিখুন — translation appears below."></textarea>
+                        </div>
+                        <div id="translateResult">
+                            <p class="text-stone-400 italic text-sm">
+                                When you compose a brief from a non-English idea, the translation
+                                shows up here automatically. You can also translate ad-hoc text
+                                using the box above.
+                            </p>
+                        </div>
+                    </div>
+
                     <div id="pane-log" class="pane p-6 font-mono text-xs space-y-1 hidden">
                         <p class="text-stone-400 italic">Pipeline events will appear here.</p>
                     </div>

@@ -17,8 +17,14 @@
         brief: $('#pane-brief'),
         draft: $('#pane-draft'),
         detect: $('#pane-detect'),
+        translate: $('#pane-translate'),
         log: $('#pane-log'),
     };
+
+    const translateBtn = $('#translateBtn');
+    const translateInput = $('#translateInput');
+    const translateTarget = $('#translateTarget');
+    const translateResult = $('#translateResult');
 
     // --- App state -------------------------------------------------------
     const state = {
@@ -157,6 +163,82 @@
         }, 1000);
     }
 
+    // --- Translation ----------------------------------------------------
+    /**
+     * Render a translation result (from /api/translate or from /api/brief)
+     * into the Translate tab.
+     */
+    function renderTranslation(data, opts = {}) {
+        const { source = 'ad-hoc' } = opts;
+        const original = escapeHtml(data.original_text || '');
+        const translated = escapeHtml(data.translated_text || '');
+        const srcLang = escapeHtml(data.source_language || 'unknown');
+        const tgtLang = escapeHtml(data.target_language || 'en');
+        const banner = data.needed_translation
+            ? `<div class="text-xs text-stone-500 mb-3">
+                    Source: <code>${source}</code> · ${srcLang} → ${tgtLang}
+                </div>`
+            : `<div class="text-xs text-stone-500 mb-3">
+                    Source: <code>${source}</code> · text was already in <code>${tgtLang}</code> — no translation needed.
+                </div>`;
+        const block = data.needed_translation
+            ? `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-xs font-semibold text-stone-500 mb-1 uppercase tracking-wide">
+                            Original (${srcLang})
+                        </div>
+                        <div class="border border-stone-200 rounded-lg p-3 text-sm bg-stone-50 leading-relaxed whitespace-pre-wrap">${original}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold text-stone-500 mb-1 uppercase tracking-wide">
+                            ${tgtLang}
+                        </div>
+                        <div class="border border-stone-200 rounded-lg p-3 text-sm bg-white leading-relaxed whitespace-pre-wrap">${translated}</div>
+                    </div>
+                </div>
+            `
+            : `
+                <div class="border border-stone-200 rounded-lg p-3 text-sm bg-stone-50 leading-relaxed whitespace-pre-wrap">${original}</div>
+            `;
+        translateResult.innerHTML = banner + block;
+    }
+
+    translateBtn.addEventListener('click', async () => {
+        const text = translateInput.value.trim();
+        if (!text) {
+            log('Translate input is empty', 'error');
+            return;
+        }
+        const originalLabel = translateBtn.innerHTML;
+        translateBtn.disabled = true;
+        translateBtn.innerHTML = '<span class="spin"></span> Translating…';
+        log(`Translating ${text.length} chars → ${translateTarget.value}…`);
+        try {
+            const data = await apiPost('/api/translate', {
+                text,
+                target_lang: translateTarget.value,
+            });
+            renderTranslation(data, { source: 'ad-hoc' });
+            activateTab('translate');
+            log(
+                `Translated ${data.source_language} → ${data.target_language}`,
+                'success',
+            );
+            translateBtn.disabled = false;
+            translateBtn.innerHTML = originalLabel;
+        } catch (e) {
+            if (e instanceof RateLimitedError) {
+                log(`Rate limited: ${e.message}`, 'error');
+                startCountdown(translateBtn, e.retryAfter, originalLabel);
+            } else {
+                log(`Translate failed: ${e.message}`, 'error');
+                translateBtn.disabled = false;
+                translateBtn.innerHTML = originalLabel;
+            }
+        }
+    });
+
     // --- Compose brief --------------------------------------------------
     composeBtn.addEventListener('click', async () => {
         const idea = ideaText.value.trim();
@@ -177,6 +259,17 @@
             renderBrief(data);
             renderDraft(); // clear draft pane
             renderDetector(null); // clear detector pane
+            // Mirror translation into the Translate tab so it's reviewable.
+            renderTranslation(
+                {
+                    original_text: data.original_text,
+                    translated_text: data.translated_text,
+                    source_language: data.source_language,
+                    target_language: 'en',
+                    needed_translation: data.needed_translation,
+                },
+                { source: `brief: ${data.post_id}` },
+            );
             activateTab('brief');
             draftBtn.disabled = false;
             detectBtn.disabled = true;
