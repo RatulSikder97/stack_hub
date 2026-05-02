@@ -91,30 +91,61 @@ Set `LLM_PROVIDER` in `.env` to one of:
 Switch providers without restarting anything else: change the env var, run
 the next CLI command.
 
-## Web panel (recommended for non-CLI use)
+## Web panel (React + Vite, dark studio UI)
+
+The panel is a real React + TypeScript SPA built with Vite. FastAPI serves
+the prebuilt `webapp/dist/` directory and exposes the JSON API at `/api/*`.
+
+### One-time build
+
+```bash
+cd webapp
+npm install
+npm run build           # produces webapp/dist/
+cd ..
+```
+
+### Run the server
 
 ```bash
 python scripts/serve.py            # http://localhost:8765 (auto-bumps if busy)
 python scripts/serve.py --port 9000
 ```
 
-> **Note:** the default port is **8765**, not 8000 — 8000 is commonly held
-> by Docker, dev servers, etc. If 8765 is also taken, `serve.py` walks
-> forward through the next 20 ports until it finds one free, and prints
-> the actual URL it bound to.
+> The default port is **8765**, not 8000 — 8000 is commonly held by Docker.
+> If 8765 is also taken, `serve.py` walks forward through the next 20 ports
+> and prints the URL it actually bound to.
 
-The panel gives you a single page with a microphone button (uses your
-browser's Web Speech API — supports Bengali, Hindi, English, and others),
-a textarea for typing or pasting an idea, and three pipeline buttons
-(**Compose Brief → Generate Draft → Run Detector**). Outputs render
-inline with markdown.
+### Pages
 
-* Voice input works in Chrome and Safari (Bengali = `bn-BD` / `bn-IN`).
-* Pipeline runs synchronously per stage; expect 20–60s per LLM call.
-* All artifacts land on disk under `briefs/`, `drafts/`, `data/posts.json`
-  exactly like the CLI.
+| Route | Purpose |
+|---|---|
+| `/studio` | Voice / text idea capture. Big mic button with live waveform, auto-punctuation on pause, Polish button (LLM repunctuation), Compose Brief. |
+| `/library` | All posts with status badges, hook/framework, created-time. Click to drill in. |
+| `/library/{post_id}` | Per-post detail: brief tab, draft tab with inline flag highlights, detector tab with click-to-jump, pipeline action buttons (draft / detect / publish). |
+| `/translate` | Standalone multilingual translator. |
+| `/settings` | Read-only view of provider/model/brand/cadence. |
+
+### Dev mode (hot reload)
+
+```bash
+# Terminal 1 — FastAPI
+python scripts/serve.py
+
+# Terminal 2 — Vite dev server (proxies /api to FastAPI)
+cd webapp && npm run dev          # http://localhost:5173
+```
+
+### What runs in the browser
+
+* Voice input via Web Speech API (Chrome/Safari) — Bengali = `bn-BD` / `bn-IN`,
+  English, Hindi, Spanish, French.
+* Live waveform via Web Audio API (concentric pulse + 56 frequency bars).
+* Auto-punctuation: pause ~700ms → period (or `।` for Bengali/Hindi); pause
+  ~1800ms → paragraph break.
+* Toast notifications for successes, errors, and rate-limit countdowns.
 * `localhost` only — no auth. Pass `--host 0.0.0.0` to expose on LAN
-  (only do this on a trusted network).
+  (only on a trusted network).
 
 ## Multilingual idea entry (CLI)
 

@@ -212,15 +212,29 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
     templates_dir = web_dir / "templates"
     static_dir = web_dir / "static"
 
+    # React SPA build output. If `webapp/dist/` exists we serve it as the root
+    # UI; otherwise we fall back to the legacy template-based panel.
+    project_root = Path(__file__).resolve().parents[3]
+    spa_dir = project_root / "webapp" / "dist"
+    spa_index = spa_dir / "index.html"
+
     app = FastAPI(title="Stack Hub Pipeline", docs_url="/api/docs", redoc_url=None)
     templates = Jinja2Templates(directory=str(templates_dir))
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    if spa_dir.exists() and (spa_dir / "assets").exists():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(spa_dir / "assets")),
+            name="spa-assets",
+        )
 
     # ---- Page -------------------------------------------------------------
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> HTMLResponse:
+        if spa_index.exists():
+            return HTMLResponse(content=spa_index.read_text(encoding="utf-8"))
         settings = get_settings()
         return templates.TemplateResponse(
             request,
@@ -232,6 +246,7 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
                 "key_present": settings.has_active_provider_key(),
             },
         )
+
 
     # ---- Status -----------------------------------------------------------
 
@@ -543,6 +558,21 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
             draft_text=_read_optional(_latest_draft_path(post_id) or Path("/dev/null")),
             published_text=_read_optional(_latest_published_path(post_id) or Path("/dev/null")),
         )
+
+    # ---- SPA fallback (REGISTERED LAST) ------------------------------------
+    # Any non-/api, non-/static, non-/assets path falls through to index.html
+    # so React Router can handle deep-links like /library/{post_id}.
+
+    if spa_index.exists():
+        @app.get("/{full_path:path}", response_class=HTMLResponse)
+        def spa_fallback(full_path: str) -> HTMLResponse:
+            if (
+                full_path.startswith("api")
+                or full_path.startswith("static")
+                or full_path.startswith("assets")
+            ):
+                raise HTTPException(status_code=404)
+            return HTMLResponse(content=spa_index.read_text(encoding="utf-8"))
 
     return app
 

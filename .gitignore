@@ -11,5 +11,13 @@ coverage.xml
 htmlcov/
 /drafts/*.tmp.md
 build/
-dist/
 *.egg-info/
+
+# Python build output
+/dist/
+
+# React/Vite webapp
+/webapp/node_modules/
+/webapp/dist/
+/webapp/.vite/
+*.tsbuildinfo

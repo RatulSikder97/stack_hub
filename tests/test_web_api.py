@@ -69,7 +69,9 @@ def test_index_renders_html(make_app) -> None:  # noqa: ANN001
     res = client.get("/")
     assert res.status_code == 200
     assert "text/html" in res.headers["content-type"]
-    assert "Test Brand" in res.text
+    # When the React SPA build is present, "/" returns the SPA shell; the
+    # legacy template-based panel includes the brand name. Either is valid.
+    assert "Test Brand" in res.text or "Stack Hub" in res.text
 
 
 # --- Translate -------------------------------------------------------------
