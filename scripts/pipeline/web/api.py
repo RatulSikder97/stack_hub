@@ -22,19 +22,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import Cookie, Depends, FastAPI, HTTPException
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from starlette.requests import Request
 
+from pipeline import auth as _auth
 from pipeline import paths as _paths
 from pipeline.brief_builder import BriefBuildError, BriefDraft, IdeaToBrief
 from pipeline.config import Settings, get_settings
 from pipeline.detectors import DetectionResult, LocalKillListDetector
 from pipeline.detectors.llm_judge import DetectorParseError, LLMJudgeDetector
 from pipeline.llm import LLMProvider, MissingAPIKeyError, build_provider
+from pipeline.llm.base import RateLimitError
 from pipeline.logging_config import get_logger
 from pipeline.models import PostRecord, PostStatus, RetentionAnswer, now_iso
 from pipeline.repository import PostNotFoundError, PostRepository
@@ -153,6 +155,83 @@ class ErrorResponse(BaseModel):
     detail: str
 
 
+# --- Auth + Admin models --------------------------------------------------
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    username: str
+    role: str
+
+
+class AdminFileListItem(BaseModel):
+    path: str
+    category: str
+    label: str
+    size: int
+    modified_at: str
+    deletable: bool = False
+
+
+class AdminFileBody(BaseModel):
+    path: str
+    content: str
+
+
+# Whitelist of fixed editable paths. Anything else must match a dynamic rule
+# (currently: corpus/{writer}/{post}.md).
+_FIXED_EDITABLE_FILES: dict[str, tuple[str, str]] = {
+    "voice/voice_map.md": ("voice", "Voice fingerprint map"),
+    "voice/brand_promise.md": ("voice", "Brand promise"),
+    "voice/ai_tells_killlist.md": ("voice", "AI tells kill list"),
+    "prompts/master_system_prompt.md": ("prompts", "Master system prompt"),
+    "prompts/ai_tells_detector_prompt.md": ("prompts", "AI tells detector prompt"),
+    "libraries/hook_library.md": ("libraries", "Hook library"),
+    "libraries/structure_library.md": ("libraries", "Structure library"),
+    "briefs/_TEMPLATE.md": ("briefs", "Brief template"),
+    "data/config.json": ("config", "Brand + cadence config"),
+}
+
+
+def _resolve_editable_path(rel_path: str) -> tuple[Path, str, bool]:
+    """Validate that `rel_path` is editable. Returns (abs_path, category, deletable).
+
+    Rejects path traversal and any path outside the editable set.
+    """
+    rel = rel_path.strip().lstrip("/")
+    if not rel or ".." in rel.split("/"):
+        raise HTTPException(status_code=400, detail=f"invalid path: {rel_path!r}")
+
+    root = _paths.PROJECT_ROOT
+    abs_path = (root / rel).resolve()
+    try:
+        abs_path.relative_to(root.resolve())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="path escapes project root") from exc
+
+    if rel in _FIXED_EDITABLE_FILES:
+        category = _FIXED_EDITABLE_FILES[rel][0]
+        return abs_path, category, False
+
+    # Corpus rule: corpus/{writer}/{post}.md, single nesting level.
+    parts = rel.split("/")
+    if (
+        len(parts) == 3
+        and parts[0] == "corpus"
+        and parts[2].endswith(".md")
+        and parts[1]
+        and not parts[1].startswith(".")
+        and not parts[2].startswith(".")
+    ):
+        return abs_path, "corpus", True
+
+    raise HTTPException(status_code=403, detail=f"path not editable: {rel}")
+
+
 # --- Helpers ---------------------------------------------------------------
 
 
@@ -229,6 +308,30 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
             name="spa-assets",
         )
 
+    # ---- Auth helpers (closures over the app for dependency injection) ---
+
+    def _current_user_optional(
+        session_cookie: str | None = Cookie(default=None, alias=_auth.COOKIE_NAME),
+    ) -> _auth.User | None:
+        if _auth.auth_disabled():
+            return _auth.User(username="anonymous", role="admin")
+        if not session_cookie:
+            return None
+        try:
+            return _auth.decode_session(session_cookie)
+        except _auth.AuthError:
+            return None
+
+    def require_user(user: _auth.User | None = Depends(_current_user_optional)) -> _auth.User:
+        if user is None:
+            raise HTTPException(status_code=401, detail="not authenticated")
+        return user
+
+    def require_admin(user: _auth.User = Depends(require_user)) -> _auth.User:
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="admin role required")
+        return user
+
     # ---- Page -------------------------------------------------------------
 
     @app.get("/", response_class=HTMLResponse)
@@ -248,10 +351,42 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
         )
 
 
+    # ---- Auth -------------------------------------------------------------
+
+    @app.post("/api/auth/login", response_model=LoginResponse)
+    def auth_login(payload: LoginRequest, response: Response) -> LoginResponse:
+        try:
+            user = _auth.authenticate(payload.username, payload.password)
+        except _auth.AuthError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        token = _auth.encode_session(user)
+        response.set_cookie(
+            key=_auth.COOKIE_NAME,
+            value=token,
+            httponly=True,
+            samesite="lax",
+            max_age=_auth._max_age_seconds(),  # noqa: SLF001
+            path="/",
+        )
+        return LoginResponse(username=user.username, role=user.role)
+
+    @app.post("/api/auth/logout")
+    def auth_logout(response: Response) -> dict[str, bool]:
+        response.delete_cookie(_auth.COOKIE_NAME, path="/")
+        return {"ok": True}
+
+    @app.get("/api/auth/me", response_model=LoginResponse)
+    def auth_me(
+        user: _auth.User | None = Depends(_current_user_optional),
+    ) -> LoginResponse:
+        if user is None:
+            raise HTTPException(status_code=401, detail="not authenticated")
+        return LoginResponse(username=user.username, role=user.role)
+
     # ---- Status -----------------------------------------------------------
 
     @app.get("/api/status", response_model=StatusResponse)
-    def status() -> StatusResponse:
+    def status(_user: _auth.User = Depends(require_user)) -> StatusResponse:
         settings = get_settings()
         return StatusResponse(
             provider=settings.llm_provider,
@@ -261,6 +396,123 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
             cadence_days=settings.cadence_days,
         )
 
+    # ---- Admin: file editor ----------------------------------------------
+
+    @app.get("/api/admin/files", response_model=list[AdminFileListItem])
+    def admin_list_files(
+        _user: _auth.User = Depends(require_admin),
+    ) -> list[AdminFileListItem]:
+        items: list[AdminFileListItem] = []
+        for rel, (category, label) in _FIXED_EDITABLE_FILES.items():
+            abs_path = _paths.PROJECT_ROOT / rel
+            stat = abs_path.stat() if abs_path.exists() else None
+            items.append(
+                AdminFileListItem(
+                    path=rel,
+                    category=category,
+                    label=label,
+                    size=stat.st_size if stat else 0,
+                    modified_at=(
+                        datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+                        if stat
+                        else ""
+                    ),
+                    deletable=False,
+                )
+            )
+        # Corpus files (dynamic)
+        corpus_dir = _paths.CORPUS_DIR
+        if corpus_dir.exists():
+            for writer_dir in sorted(corpus_dir.iterdir()):
+                if not writer_dir.is_dir() or writer_dir.name.startswith("."):
+                    continue
+                for post in sorted(writer_dir.glob("*.md")):
+                    rel = f"corpus/{writer_dir.name}/{post.name}"
+                    stat = post.stat()
+                    items.append(
+                        AdminFileListItem(
+                            path=rel,
+                            category="corpus",
+                            label=f"{writer_dir.name} · {post.stem}",
+                            size=stat.st_size,
+                            modified_at=datetime.fromtimestamp(
+                                stat.st_mtime, tz=timezone.utc
+                            ).isoformat(),
+                            deletable=True,
+                        )
+                    )
+        return items
+
+    @app.get("/api/admin/files/{file_path:path}")
+    def admin_read_file(
+        file_path: str,
+        _user: _auth.User = Depends(require_admin),
+    ) -> dict[str, Any]:
+        abs_path, category, deletable = _resolve_editable_path(file_path)
+        if not abs_path.exists():
+            raise HTTPException(status_code=404, detail=f"file not found: {file_path}")
+        stat = abs_path.stat()
+        return {
+            "path": file_path,
+            "category": category,
+            "deletable": deletable,
+            "size": stat.st_size,
+            "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+            "content": abs_path.read_text(encoding="utf-8"),
+        }
+
+    @app.put("/api/admin/files/{file_path:path}")
+    def admin_write_file(
+        file_path: str,
+        payload: AdminFileBody,
+        _user: _auth.User = Depends(require_admin),
+    ) -> dict[str, Any]:
+        if payload.path.strip() and payload.path.strip().lstrip("/") != file_path:
+            raise HTTPException(
+                status_code=400,
+                detail="payload.path must match URL path",
+            )
+        abs_path, category, deletable = _resolve_editable_path(file_path)
+
+        # config.json must remain valid JSON
+        if file_path == "data/config.json":
+            try:
+                import json as _json
+
+                parsed = _json.loads(payload.content)
+                if not isinstance(parsed, dict):
+                    raise ValueError("config.json must be a JSON object")
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(status_code=400, detail=f"invalid JSON: {exc}") from exc
+
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        # Atomic write via temp file rename.
+        import os as _os
+
+        tmp = abs_path.with_suffix(abs_path.suffix + ".tmp")
+        tmp.write_text(payload.content, encoding="utf-8")
+        _os.replace(tmp, abs_path)
+        stat = abs_path.stat()
+        return {
+            "path": file_path,
+            "category": category,
+            "deletable": deletable,
+            "size": stat.st_size,
+            "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+        }
+
+    @app.delete("/api/admin/files/{file_path:path}")
+    def admin_delete_file(
+        file_path: str,
+        _user: _auth.User = Depends(require_admin),
+    ) -> dict[str, Any]:
+        abs_path, _category, deletable = _resolve_editable_path(file_path)
+        if not deletable:
+            raise HTTPException(status_code=400, detail="this file is not deletable")
+        if abs_path.exists():
+            abs_path.unlink()
+        return {"path": file_path, "deleted": True}
+
     # ---- Translate --------------------------------------------------------
 
     @app.post(
@@ -268,7 +520,10 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
         response_model=TranslateResponse,
         responses={400: {"model": ErrorResponse}, 429: {"model": ErrorResponse}},
     )
-    def translate(payload: TranslateRequest) -> TranslateResponse:
+    def translate(
+        payload: TranslateRequest,
+        _user: _auth.User = Depends(require_user),
+    ) -> TranslateResponse:
         if not payload.text.strip():
             raise HTTPException(status_code=400, detail="text must not be empty")
         provider = _ensure_provider(factory)
@@ -298,7 +553,10 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
             502: {"model": ErrorResponse},
         },
     )
-    def compose_brief(payload: BriefRequest) -> BriefResponse:
+    def compose_brief(
+        payload: BriefRequest,
+        _user: _auth.User = Depends(require_user),
+    ) -> BriefResponse:
         if not payload.idea.strip():
             raise HTTPException(status_code=400, detail="idea must not be empty")
         provider = _ensure_provider(factory)
@@ -367,7 +625,10 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
             502: {"model": ErrorResponse},
         },
     )
-    def generate_draft(post_id: str) -> DraftResponse:
+    def generate_draft(
+        post_id: str,
+        _user: _auth.User = Depends(require_user),
+    ) -> DraftResponse:
         repo = PostRepository()
         try:
             post = repo.get(post_id)
@@ -408,7 +669,10 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
         response_model=DetectResponse,
         responses={404: {"model": ErrorResponse}, 502: {"model": ErrorResponse}},
     )
-    def run_detector(post_id: str) -> DetectResponse:
+    def run_detector(
+        post_id: str,
+        _user: _auth.User = Depends(require_user),
+    ) -> DetectResponse:
         repo = PostRepository()
         try:
             post = repo.get(post_id)
@@ -466,7 +730,10 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
     # ---- Retention check (server-side, all-yes flag) ---------------------
 
     @app.post("/api/retention/{post_id}")
-    def retention_pass(post_id: str) -> dict[str, Any]:
+    def retention_pass(
+        post_id: str,
+        _user: _auth.User = Depends(require_user),
+    ) -> dict[str, Any]:
         repo = PostRepository()
         try:
             post = repo.get(post_id)
@@ -494,7 +761,11 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
         response_model=PublishResponse,
         responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
     )
-    def publish(post_id: str, payload: PublishRequest) -> PublishResponse:
+    def publish(
+        post_id: str,
+        payload: PublishRequest,
+        _user: _auth.User = Depends(require_user),
+    ) -> PublishResponse:
         repo = PostRepository()
         try:
             post = repo.get(post_id)
@@ -538,7 +809,9 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
     # ---- Posts list -------------------------------------------------------
 
     @app.get("/api/posts", response_model=PostsListResponse)
-    def list_posts() -> PostsListResponse:
+    def list_posts(
+        _user: _auth.User = Depends(require_user),
+    ) -> PostsListResponse:
         return PostsListResponse(posts=PostRepository().list())
 
     @app.get(
@@ -546,7 +819,10 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
         response_model=PostDetail,
         responses={404: {"model": ErrorResponse}},
     )
-    def get_post(post_id: str) -> PostDetail:
+    def get_post(
+        post_id: str,
+        _user: _auth.User = Depends(require_user),
+    ) -> PostDetail:
         repo = PostRepository()
         try:
             post = repo.get(post_id)

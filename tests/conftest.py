@@ -74,6 +74,8 @@ def tmp_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
 
     monkeypatch.setenv("STACK_HUB_ROOT", str(tmp_path))
     monkeypatch.setenv("LLM_PROVIDER", "openai")
+    # Disable auth in tests by default. Auth-specific tests can flip this.
+    monkeypatch.setenv("AUTH_DISABLED", "true")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)

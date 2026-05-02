@@ -31,9 +31,14 @@ export class RateLimitedError extends ApiError {
   }
 }
 
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function request<T>(
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  body?: unknown,
+): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method,
+    credentials: 'same-origin',
     headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
@@ -50,9 +55,45 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   return (await res.json()) as T
 }
 
+// ---- Auth + admin types ----
+
+export interface AuthUser {
+  username: string
+  role: 'admin' | 'user'
+}
+
+export interface AdminFile {
+  path: string
+  category: string
+  label: string
+  size: number
+  modified_at: string
+  deletable: boolean
+}
+
+export interface AdminFileContent extends AdminFile {
+  content: string
+}
+
 // ---- Endpoints ----
 
 export const api = {
+  // Auth
+  login: (username: string, password: string) =>
+    request<AuthUser>('POST', '/auth/login', { username, password }),
+  logout: () => request<{ ok: boolean }>('POST', '/auth/logout'),
+  me: () => request<AuthUser>('GET', '/auth/me'),
+
+  // Admin
+  adminListFiles: () => request<AdminFile[]>('GET', '/admin/files'),
+  adminReadFile: (path: string) =>
+    request<AdminFileContent>('GET', `/admin/files/${path}`),
+  adminWriteFile: (path: string, content: string) =>
+    request<AdminFile>('PUT', `/admin/files/${path}`, { path, content }),
+  adminDeleteFile: (path: string) =>
+    request<{ path: string; deleted: boolean }>('DELETE', `/admin/files/${path}`),
+
+  // Pipeline
   status: () => request<StatusInfo>('GET', '/status'),
 
   translate: (text: string, target_lang = 'en') =>
