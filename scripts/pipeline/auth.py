@@ -17,7 +17,18 @@ from dataclasses import dataclass
 from typing import Literal
 
 import bcrypt
+from dotenv import load_dotenv
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+
+# Load .env once at import so ADMIN_PASSWORD / USER_PASSWORD / AUTH_SECRET
+# are visible via os.environ. pydantic-settings does not push into env.
+try:
+    from pipeline.paths import ENV_PATH as _ENV_PATH
+
+    if _ENV_PATH.exists():
+        load_dotenv(_ENV_PATH, override=False)
+except Exception:  # noqa: BLE001 — don't fail import if paths unavailable
+    pass
 
 Role = Literal["admin", "user"]
 COOKIE_NAME = "stack_hub_session"
