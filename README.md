@@ -4,6 +4,9 @@ A voice-preserving, human-gated content pipeline that takes a post from idea
 to publish while enforcing anti-AI-tells, tracking pattern rotation, and
 keeping a single source of truth in flat files plus git.
 
+> **Going live?** See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Docker
+> Compose + Caddy on AWS Lightsail with auto-HTTPS, in 7 steps.
+
 ## Project purpose
 
 Most "AI writing pipelines" produce content that reads like AI. This one is

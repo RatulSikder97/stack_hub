@@ -1,0 +1,40 @@
+[Unit]
+Description=Stack Hub Studio — FastAPI + React SPA
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=stackhub
+Group=stackhub
+WorkingDirectory=/opt/stack-hub
+EnvironmentFile=/opt/stack-hub/.env
+Environment=STACK_HUB_LOG_LEVEL=INFO
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/stack-hub/.venv/bin/uvicorn pipeline.web.api:create_app \
+    --factory \
+    --host 127.0.0.1 \
+    --port 8765 \
+    --workers 1 \
+    --proxy-headers \
+    --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=3
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/stack-hub
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

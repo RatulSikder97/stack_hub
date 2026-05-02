@@ -1,0 +1,70 @@
+# =============================================================================
+# Stack Hub Studio — production-ready compose for self-hosted deploy.
+#
+# Two services:
+#   * stackhub  — FastAPI + React SPA in one container, listens on :8765
+#   * caddy     — reverse proxy that auto-provisions HTTPS via Let's Encrypt
+#
+# Required env vars (set in .env next to this file):
+#   DOMAIN=studio.example.com    # public hostname pointing to this server
+#   ADMIN_PASSWORD=...           # initial admin password
+#   AUTH_SECRET=...              # 32+ chars random, signs session cookies
+#   GEMINI_API_KEY=... (or OPENAI_API_KEY / ANTHROPIC_API_KEY / NOVITA_API_KEY)
+#
+# Bring it up:
+#   docker compose up -d
+# Tear down (data persists):
+#   docker compose down
+# Pull updates + redeploy:
+#   git pull && docker compose up -d --build
+# =============================================================================
+
+services:
+  stackhub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: stackhub:latest
+    container_name: stackhub
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "8765"
+    volumes:
+      - stackhub-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8765/api/auth/me').status in (200,401) else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - stackhub-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: stackhub-caddy
+    restart: unless-stopped
+    depends_on:
+      - stackhub
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
+      - ACME_EMAIL=${ACME_EMAIL:-admin@${DOMAIN}}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - stackhub-net
+
+volumes:
+  stackhub-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  stackhub-net:

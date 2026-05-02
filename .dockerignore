@@ -1,0 +1,50 @@
+.git
+.gitignore
+.github
+.vscode
+.idea
+.DS_Store
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+coverage.xml
+htmlcov
+.venv
+venv
+
+# Node
+webapp/node_modules
+webapp/dist
+webapp/.vite
+
+# Local secrets & runtime state
+.env
+data/posts.json
+drafts/
+published/
+briefs/2026*.md
+rituals/audits/
+
+# Editor/build leftovers
+*.log
+*.swp
+*.bak
+*.tmp
+build
+dist
+
+# Docs / non-runtime files
+README.md
+docs/
+deploy/install.sh
+deploy/update.sh
+Claude_Code_Task_Packs.md
+tech_stack.md
+PROJECT_REPORT.md
+PROJECT_TODOS.md

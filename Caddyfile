@@ -1,0 +1,40 @@
+# Stack Hub Studio — Caddy reverse proxy.
+#
+# Reads $DOMAIN and $ACME_EMAIL from compose env. Auto-provisions HTTPS
+# via Let's Encrypt the first time it sees the domain in DNS.
+
+{
+    email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+    encode gzip zstd
+
+    # Cache hashed Vite assets aggressively.
+    @assets path /assets/*
+    header @assets Cache-Control "public, max-age=31536000, immutable"
+
+    # API + SPA both flow through the FastAPI server. Long timeout for LLM
+    # calls (drafts can take 30-60s).
+    reverse_proxy stackhub:8765 {
+        transport http {
+            read_timeout  120s
+            write_timeout 120s
+        }
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Useful security headers (mic permission needs HTTPS, which Caddy
+    # already enforces; the rest are defense-in-depth).
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options    "nosniff"
+        X-Frame-Options           "SAMEORIGIN"
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        Permissions-Policy        "microphone=(self)"
+        # Drop the default Server: header
+        -Server
+    }
+}
