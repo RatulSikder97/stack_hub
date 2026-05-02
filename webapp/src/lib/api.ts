@@ -75,6 +75,14 @@ export interface AdminFileContent extends AdminFile {
   content: string
 }
 
+export interface TranscriptParseResult {
+  text: string
+  detected_format: 'vtt' | 'srt' | 'text' | 'unknown'
+  line_count: number
+  word_count: number
+  speakers: string[]
+}
+
 // ---- Endpoints ----
 
 export const api = {
@@ -92,6 +100,10 @@ export const api = {
     request<AdminFile>('PUT', `/admin/files/${path}`, { path, content }),
   adminDeleteFile: (path: string) =>
     request<{ path: string; deleted: boolean }>('DELETE', `/admin/files/${path}`),
+
+  // Meetings
+  parseTranscript: (content: string, filename?: string) =>
+    request<TranscriptParseResult>('POST', '/meeting/parse', { content, filename }),
 
   // Pipeline
   status: () => request<StatusInfo>('GET', '/status'),

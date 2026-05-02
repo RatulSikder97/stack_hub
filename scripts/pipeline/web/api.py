@@ -41,6 +41,7 @@ from pipeline.logging_config import get_logger
 from pipeline.models import PostRecord, PostStatus, RetentionAnswer, now_iso
 from pipeline.repository import PostNotFoundError, PostRepository
 from pipeline.templating import render_master_prompt
+from pipeline.transcript import parse as parse_transcript
 from pipeline.translation import TranslationParseError, Translator
 
 LOG = get_logger(__name__)
@@ -180,6 +181,19 @@ class AdminFileListItem(BaseModel):
 class AdminFileBody(BaseModel):
     path: str
     content: str
+
+
+class TranscriptParseRequest(BaseModel):
+    content: str
+    filename: str | None = None
+
+
+class TranscriptParseResponse(BaseModel):
+    text: str
+    detected_format: str
+    line_count: int
+    word_count: int
+    speakers: list[str]
 
 
 # Whitelist of fixed editable paths. Anything else must match a dynamic rule
@@ -382,6 +396,28 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
         if user is None:
             raise HTTPException(status_code=401, detail="not authenticated")
         return LoginResponse(username=user.username, role=user.role)
+
+    # ---- Meeting transcript ingestion ------------------------------------
+
+    @app.post(
+        "/api/meeting/parse",
+        response_model=TranscriptParseResponse,
+        responses={400: {"model": ErrorResponse}},
+    )
+    def meeting_parse(
+        payload: TranscriptParseRequest,
+        _user: _auth.User = Depends(require_user),
+    ) -> TranscriptParseResponse:
+        if not payload.content.strip():
+            raise HTTPException(status_code=400, detail="content must not be empty")
+        result = parse_transcript(payload.content)
+        return TranscriptParseResponse(
+            text=result.text,
+            detected_format=result.detected_format,
+            line_count=result.line_count,
+            word_count=result.word_count,
+            speakers=result.speakers,
+        )
 
     # ---- Status -----------------------------------------------------------
 

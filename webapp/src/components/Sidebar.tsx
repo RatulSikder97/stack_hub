@@ -10,9 +10,12 @@ import {
   Send,
   Code2,
   Sparkles,
+  ShieldCheck,
+  Video,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useAuth } from './AuthProvider'
 import { api } from '../lib/api'
 import type { StatusInfo } from '../lib/types'
 import { cn } from '../lib/utils'
@@ -26,24 +29,28 @@ interface NavSpec {
 const primaryNav: NavSpec[] = [
   { to: '/home', label: 'Home', icon: Home },
   { to: '/studio', label: 'Studio', icon: Mic },
+  { to: '/meetings', label: 'Meetings', icon: Video },
   { to: '/library', label: 'Library', icon: Library },
   { to: '/translate', label: 'Translate', icon: Languages },
 ]
 
 const pinnedNav: NavSpec[] = [
   { to: '/studio', label: 'Voice → Brief', icon: Mic },
+  { to: '/meetings', label: 'Meeting → Brief', icon: Video },
   { to: '/translate', label: 'Quick translate', icon: Languages },
   { to: '/library', label: 'All posts', icon: Library },
 ]
 
 export function Sidebar() {
   const [status, setStatus] = useState<StatusInfo | null>(null)
+  const { user } = useAuth()
   useEffect(() => {
     api.status().then(setStatus).catch(() => undefined)
   }, [])
 
   const brand = status?.brand_name ?? 'Stack Hub'
   const initial = brand[0]?.toUpperCase() ?? 'S'
+  const isAdmin = user?.role === 'admin'
 
   return (
     <aside className="w-60 shrink-0 bg-bg-sidebar border-r border-line-subtle flex flex-col h-screen sticky top-0">
@@ -81,6 +88,18 @@ export function Sidebar() {
             )}
           </NavLink>
         ))}
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) => cn('nav-item', isActive && 'active')}
+          >
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            <span>Admin</span>
+            <span className="ml-auto pill bg-amber-100 text-amber-800 border border-amber-200 text-[10px]">
+              admin
+            </span>
+          </NavLink>
+        )}
       </nav>
 
       {/* Pinned */}

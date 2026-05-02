@@ -6,6 +6,7 @@ import { AdminPage } from './pages/Admin'
 import { HomePage } from './pages/Home'
 import { LibraryPage } from './pages/Library'
 import { LoginPage } from './pages/Login'
+import { MeetingsPage } from './pages/Meetings'
 import { PostDetailPage } from './pages/PostDetail'
 import { SettingsPage } from './pages/Settings'
 import { Studio } from './pages/Studio'
@@ -23,6 +24,7 @@ function App() {
             <Route path="studio" element={<Studio />} />
             <Route path="library" element={<LibraryPage />} />
             <Route path="library/:postId" element={<PostDetailPage />} />
+            <Route path="meetings" element={<MeetingsPage />} />
             <Route path="translate" element={<TranslatePage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route element={<RequireAdmin />}>
