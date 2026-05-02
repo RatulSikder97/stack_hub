@@ -33,14 +33,43 @@ two small files (compose + Caddyfile), and runs `docker compose up -d`.
    Server: ──────────► docker compose pull && docker compose up -d
 ```
 
-The first time CI publishes the image to GHCR, the package is private by
-default. To allow your Lightsail server to pull without auth, make it
-public:
+**Private repo? Same flow.** This guide assumes the repo and the GHCR
+package are both private. The bootstrap script authenticates with a
+GitHub Personal Access Token (PAT) for both:
 
-1. GitHub → your profile → **Packages** → click `stack-hub`
-2. **Package settings** → **Change visibility** → **Public**
+* Pulling the compose / Caddyfile / env template via the GitHub API
+* `docker login ghcr.io` so the image pull works
 
-If you'd rather keep it private, see "Pulling a private image" below.
+You'll create that token in **Step 0** below.
+
+---
+
+## Step 0 · Create a GitHub PAT (one-time, ~2 minutes)
+
+The server needs read access to your private repo and the GHCR package.
+Use a **fine-grained token** scoped narrowly to just this:
+
+1. GitHub → your avatar → **Settings** → **Developer settings** →
+   **Personal access tokens** → **Fine-grained tokens** → **Generate new
+   token**
+2. **Token name:** `stack-hub-deploy`
+3. **Expiration:** 90 days (rotate before expiry)
+4. **Resource owner:** your account
+5. **Repository access:** *Only select repositories* → pick your
+   `stack-hub` repo
+6. **Repository permissions** → set:
+   * **Contents** → **Read-only**
+   * (Metadata is auto-included)
+7. **Account permissions** → set:
+   * **Packages** → **Read-only**
+8. **Generate token**, copy the `github_pat_...` string somewhere safe.
+
+This token is scoped narrowly enough that it can ONLY read code + pull
+the image. It can't push code, create PRs, or write packages.
+
+> **Rotation:** add a calendar reminder for day 85. Rotation is just
+> "regenerate the token, edit `~/.docker/config.json` with the new one,
+> re-run `docker login ghcr.io` if needed".
 
 ---
 
@@ -73,27 +102,60 @@ dig +short studio.example.com
 
 ### 3 · One-shot bootstrap
 
-SSH in, then run **one** command — it installs Docker, downloads compose +
-Caddyfile + env template, generates random auth secrets, and starts the
-stack:
+SSH in. Because the repo is private, you can't pipe `bootstrap.sh` from
+`raw.githubusercontent.com` directly — that URL also requires auth. Two
+clean options:
+
+**Option 1 — copy bootstrap.sh once, run with token:**
 
 ```bash
 ssh ubuntu@studio.example.com
 
-curl -fsSL https://raw.githubusercontent.com/<you>/stack-hub/main/deploy/bootstrap.sh \
+# Paste bootstrap.sh as a one-shot heredoc, OR use scp/sftp:
+#   scp deploy/bootstrap.sh ubuntu@studio.example.com:/tmp/
+# (run the scp from your laptop, not the server)
+
+# Then on the server:
+sudo \
+    REPO=<you>/stack-hub \
+    IMAGE=ghcr.io/<you>/stack-hub:latest \
+    DOMAIN=studio.example.com \
+    ACME_EMAIL=you@example.com \
+    GH_USERNAME=<you> \
+    GH_TOKEN=github_pat_xxx \
+    bash /tmp/bootstrap.sh
+```
+
+**Option 2 — fetch bootstrap.sh with the same token in one line:**
+
+```bash
+ssh ubuntu@studio.example.com
+
+GH_TOKEN=github_pat_xxx
+GH_USERNAME=<you>
+REPO=<you>/stack-hub
+
+curl -fsSL \
+    -H "Authorization: Bearer $GH_TOKEN" \
+    -H "Accept: application/vnd.github.v3.raw" \
+    "https://api.github.com/repos/$REPO/contents/deploy/bootstrap.sh?ref=main" \
     | sudo \
-        IMAGE=ghcr.io/<you>/stack-hub:latest \
+        REPO=$REPO \
+        IMAGE=ghcr.io/$REPO:latest \
         DOMAIN=studio.example.com \
         ACME_EMAIL=you@example.com \
-        REPO=<you>/stack-hub \
+        GH_USERNAME=$GH_USERNAME \
+        GH_TOKEN=$GH_TOKEN \
         bash
 ```
 
 The script:
 - Installs Docker if not present
+- Runs `docker login ghcr.io` with your PAT (saved to `~/.docker/config.json`
+  so subsequent pulls don't need it again)
 - Creates `/opt/stackhub/`
-- Pulls `docker-compose.yml`, `Caddyfile`, and `deploy/docker.env.example`
-  from the GitHub raw URL
+- Authenticated-fetches `docker-compose.yml`, `Caddyfile`, and the env
+  template via GitHub API
 - Generates random `ADMIN_PASSWORD`, `USER_PASSWORD`, `AUTH_SECRET`
 - Prints the credentials to the terminal (copy them now)
 - Pauses for you to add your LLM API key (`GEMINI_API_KEY` etc.) to `.env`
@@ -127,20 +189,20 @@ docker run --rm -v stackhub_stackhub-data:/data \
     tar -czf /backup/stackhub-$(date -u +%Y%m%dT%H%M%SZ).tar.gz -C /data .
 ```
 
-### 5 · Pulling a private image (optional)
+### 5 · Re-authenticating GHCR (after token rotation)
 
-Skip this if you made the package public. If you keep it private:
+`bootstrap.sh` already ran `docker login ghcr.io` for you and saved the
+credential to `/root/.docker/config.json`. Pulls keep working as long as
+the PAT is valid.
 
-1. Generate a GitHub Personal Access Token with the `read:packages` scope.
-2. On the server:
-   ```bash
-   echo "<your-token>" | docker login ghcr.io -u <you> --password-stdin
-   ```
-3. Subsequent `docker compose pull` calls will use the saved credential.
+When you rotate the token (every 90 days), update the saved credential
+without re-running bootstrap:
 
-For unattended servers, save the token in `~/.docker/config.json` (Docker
-does this automatically after a successful login). Don't put the token in
-`.env`.
+```bash
+echo "<new-token>" | sudo docker login ghcr.io -u <you> --password-stdin
+```
+
+Then `docker compose pull` keeps working.
 
 ---
 
@@ -230,9 +292,12 @@ Stack Hub idles at ~80 MB RAM; LLM-heavy bursts spike to ~250 MB.
 that DNS points to your server, ports 80/443 are open, and Caddy succeeded
 in the ACME handshake (`docker compose logs caddy | grep -i acme`).
 
-**`docker compose pull` says "denied"**. The GHCR package is still private.
-Either flip it to public in the GitHub UI, or run `docker login ghcr.io`
-with a PAT that has `read:packages`.
+**`docker compose pull` says "denied" or "unauthenticated"**. The PAT
+saved by `docker login` expired or was revoked. Generate a new one (Step 0)
+and re-run:
+```bash
+echo "<new-token>" | sudo docker login ghcr.io -u <you> --password-stdin
+```
 
 **`502 Bad Gateway` on `/api/*`.** The stackhub container hasn't started or
 crashed. `docker compose logs stackhub` will show why — usually a missing
