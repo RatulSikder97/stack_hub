@@ -4,62 +4,46 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
   html, body {
-    background: #08080d;
-    background-image: radial-gradient(
-        ellipse 80% 60% at 0% 0%,
-        rgba(139, 92, 246, 0.05),
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse 80% 60% at 100% 100%,
-        rgba(192, 38, 211, 0.04),
-        transparent 60%
-      );
-    color: #f4f4f5;
+    background: #ffffff;
+    color: #0a0a0a;
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   ::selection {
-    background: rgba(167, 139, 250, 0.3);
-    color: #f4f4f5;
+    background: rgba(167, 139, 250, 0.25);
+    color: #18181b;
   }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #2d2d3a; border-radius: 6px; }
-  ::-webkit-scrollbar-thumb:hover { background: #3a3a4a; }
+  ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
 }
 
 @layer components {
-  .glass {
-    background: rgba(19, 19, 28, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-
   .card {
     @apply bg-bg-card border border-line-subtle rounded-2xl shadow-card;
   }
 
   .input {
-    @apply w-full bg-bg-elevated border border-line-subtle rounded-xl px-4 py-3 text-sm text-ink-1 placeholder:text-ink-4
-           focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition;
+    @apply w-full bg-white border border-line rounded-xl px-4 py-3 text-sm text-ink-1 placeholder:text-ink-4
+           focus:outline-none focus:border-ink-1 focus:ring-2 focus:ring-zinc-200 transition;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-brand text-white text-sm font-semibold
-           shadow-glow hover:opacity-95 active:translate-y-px transition
-           disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-ink-1 text-white text-sm font-semibold
+           hover:bg-ink-2 active:translate-y-px transition
+           disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-bg-elevated border border-line text-sm font-medium
-           text-ink-1 hover:bg-bg-hover transition disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-line text-sm font-medium
+           text-ink-1 hover:bg-bg-elevated transition disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm text-ink-2 hover:text-ink-1 hover:bg-bg-elevated transition;
+    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm text-ink-2 hover:text-ink-1 hover:bg-bg-elevated transition;
   }
 
   .pill {
@@ -67,72 +51,81 @@
   }
 
   .nav-item {
-    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-ink-3 hover:text-ink-1 hover:bg-bg-elevated transition;
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-ink-2 hover:text-ink-1 hover:bg-bg-hover transition;
   }
   .nav-item.active {
-    color: #f4f4f5;
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(192, 38, 211, 0.08) 100%);
-    border: 1px solid rgba(167, 139, 250, 0.2);
+    @apply text-ink-1 bg-bg-active;
   }
-  .nav-item.active svg { color: #a78bfa; }
+  .nav-item .badge-count {
+    @apply ml-auto pill bg-ink-1 text-white text-[10px];
+  }
 
   .tab-trigger {
-    @apply px-3 py-2 text-sm font-medium text-ink-3 hover:text-ink-2 transition border-b-2 border-transparent;
+    @apply px-3 py-2 text-sm font-medium text-ink-3 hover:text-ink-1 transition border-b-2 border-transparent;
   }
   .tab-trigger.active {
-    @apply text-ink-1;
-    border-bottom-color: #a78bfa;
+    @apply text-ink-1 border-ink-1;
+  }
+
+  .tile {
+    @apply relative bg-bg-elevated border border-line-subtle rounded-2xl p-5 hover:bg-bg-hover hover:border-line transition cursor-pointer overflow-hidden;
+  }
+  .tile-icon {
+    @apply w-14 h-14 rounded-xl flex items-center justify-center mb-10;
+  }
+  .tile-label {
+    @apply text-sm font-semibold text-ink-1;
   }
 
   .flag-row {
     border-left: 3px solid #ef4444;
-    background: rgba(239, 68, 68, 0.08);
+    background: rgba(239, 68, 68, 0.06);
     border-radius: 0.375rem;
     padding: 0.85rem 0.95rem;
     margin-bottom: 0.5rem;
     cursor: pointer;
     transition: background-color 150ms;
   }
-  .flag-row:hover { background: rgba(239, 68, 68, 0.13); }
-  .flag-pattern { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #fca5a5; font-size: 0.85rem; }
+  .flag-row:hover { background: rgba(239, 68, 68, 0.10); }
+  .flag-pattern { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #b91c1c; font-size: 0.85rem; }
   .flag-line    { color: #71717a; font-size: 0.75rem; }
-  .flag-snippet { color: #a1a1aa; font-style: italic; margin-top: 0.25rem; font-size: 0.85rem; line-height: 1.4; }
+  .flag-snippet { color: #3f3f46; font-style: italic; margin-top: 0.25rem; font-size: 0.85rem; line-height: 1.4; }
 
   .flag-highlight {
-    background: rgba(239, 68, 68, 0.18);
-    color: #fecaca;
+    background: rgba(239, 68, 68, 0.14);
+    color: #991b1b;
     padding: 0.0625rem 0.25rem;
     border-radius: 0.25rem;
     border-bottom: 2px solid #ef4444;
     cursor: help;
     transition: background-color 200ms;
   }
-  .flag-highlight:hover { background: rgba(239, 68, 68, 0.32); }
+  .flag-highlight:hover { background: rgba(239, 68, 68, 0.24); }
   .flag-highlight.flag-flash { animation: flag-flash 1.5s ease-out; }
   @keyframes flag-flash {
-    0%   { background: #ef4444; color: white; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3); }
-    100% { background: rgba(239, 68, 68, 0.18); color: #fecaca; box-shadow: none; }
+    0% { background: #ef4444; color: white; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25); }
+    100% { background: rgba(239, 68, 68, 0.14); color: #991b1b; box-shadow: none; }
   }
 }
 
-/* Tailwind Typography overrides for dark mode */
+/* Tailwind Typography overrides for light mode */
 .prose-stack {
-  --tw-prose-body: #a1a1aa;
-  --tw-prose-headings: #f4f4f5;
-  --tw-prose-bold: #f4f4f5;
-  --tw-prose-quotes: #a1a1aa;
-  --tw-prose-quote-borders: #a78bfa;
-  --tw-prose-code: #f9a8d4;
+  --tw-prose-body: #3f3f46;
+  --tw-prose-headings: #0a0a0a;
+  --tw-prose-bold: #18181b;
+  --tw-prose-quotes: #52525b;
+  --tw-prose-quote-borders: #18181b;
+  --tw-prose-code: #be185d;
   --tw-prose-bullets: #71717a;
   --tw-prose-counters: #71717a;
-  --tw-prose-hr: #2d2d3a;
-  --tw-prose-links: #a78bfa;
-  --tw-prose-pre-code: #a1a1aa;
-  --tw-prose-pre-bg: #13131c;
+  --tw-prose-hr: #e4e4e7;
+  --tw-prose-links: #18181b;
+  --tw-prose-pre-code: #3f3f46;
+  --tw-prose-pre-bg: #f4f4f5;
 }
-.prose-stack code { background: #1a1a25; padding: 0.1em 0.35em; border-radius: 0.25rem; font-size: 0.875em; }
-.prose-stack blockquote { font-style: normal; border-left-color: #a78bfa; }
-.prose-stack pre { border: 1px solid #2d2d3a; }
+.prose-stack code { background: #f4f4f5; padding: 0.1em 0.35em; border-radius: 0.25rem; font-size: 0.875em; }
+.prose-stack blockquote { font-style: normal; }
+.prose-stack pre { border: 1px solid #e4e4e7; }
 
 /* Mic stage */
 .mic-stage {
@@ -150,31 +143,31 @@
   width: 88px;
   height: 88px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #8b5cf6, #c026d3);
+  background: #18181b;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   cursor: pointer;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 32px rgba(139, 92, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: transform 200ms;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+  transition: transform 200ms, background 200ms;
 }
-.mic-button:hover { transform: scale(1.05); }
+.mic-button:hover { transform: scale(1.04); background: #27272a; }
 .mic-button:active { transform: scale(0.97); }
 .mic-button.recording {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
+  background: #ef4444;
   animation: rec-pulse 1.4s ease-in-out infinite;
 }
 .mic-button.paused {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: #f59e0b;
 }
 @keyframes rec-pulse {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 0 rgba(239,68,68,0.5), 0 12px 32px rgba(239,68,68,0.35); }
-  50%      { box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 0 0 14px rgba(239,68,68,0), 0 12px 32px rgba(239,68,68,0.45); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5), 0 8px 24px rgba(239,68,68,0.25); }
+  50%      { box-shadow: 0 0 0 14px rgba(239,68,68,0), 0 8px 24px rgba(239,68,68,0.35); }
 }
 
-.rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #52525b; transition: background 200ms; }
-.rec-dot.live { background: #ef4444; box-shadow: 0 0 12px #ef4444; animation: dot-blink 1.4s ease-in-out infinite; }
+.rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #d4d4d8; transition: background 200ms; }
+.rec-dot.live { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); animation: dot-blink 1.4s ease-in-out infinite; }
 .rec-dot.paused { background: #f59e0b; }
 @keyframes dot-blink { 0%, 60% { opacity: 1; } 80% { opacity: 0.3; } 100% { opacity: 1; } }

@@ -1,22 +1,39 @@
 import { NavLink } from 'react-router-dom'
 import {
+  Home,
   Mic,
   Library,
   Languages,
   Settings as SettingsIcon,
-  Activity,
+  ChevronsUpDown,
+  Plus,
+  Send,
+  Code2,
   Sparkles,
+  type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import type { StatusInfo } from '../lib/types'
 import { cn } from '../lib/utils'
 
-const navItems = [
+interface NavSpec {
+  to: string
+  label: string
+  icon: LucideIcon
+}
+
+const primaryNav: NavSpec[] = [
+  { to: '/home', label: 'Home', icon: Home },
   { to: '/studio', label: 'Studio', icon: Mic },
   { to: '/library', label: 'Library', icon: Library },
   { to: '/translate', label: 'Translate', icon: Languages },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon },
+]
+
+const pinnedNav: NavSpec[] = [
+  { to: '/studio', label: 'Voice → Brief', icon: Mic },
+  { to: '/translate', label: 'Quick translate', icon: Languages },
+  { to: '/library', label: 'All posts', icon: Library },
 ]
 
 export function Sidebar() {
@@ -30,64 +47,107 @@ export function Sidebar() {
 
   return (
     <aside className="w-60 shrink-0 bg-bg-sidebar border-r border-line-subtle flex flex-col h-screen sticky top-0">
-      {/* Logo */}
-      <div className="px-4 py-5 border-b border-line-subtle">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-brand grid place-items-center text-white font-bold shadow-glow">
+      {/* Workspace switcher */}
+      <div className="px-3 pt-3 pb-2">
+        <button
+          type="button"
+          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-bg-hover transition"
+        >
+          <div className="w-7 h-7 rounded-md bg-gradient-to-br from-orange-400 to-rose-500 grid place-items-center text-white text-xs font-bold shrink-0">
             {initial}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-ink-1 truncate">{brand}</div>
-            <div className="text-[10px] uppercase tracking-widest text-ink-4">Studio</div>
-          </div>
-        </div>
+          <span className="flex-1 text-left text-sm font-medium text-ink-1 truncate">
+            {brand}
+          </span>
+          <ChevronsUpDown className="w-3.5 h-3.5 text-ink-3 shrink-0" />
+        </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        <div className="px-3 mb-2 text-[10px] uppercase tracking-widest text-ink-4 font-semibold">
-          Workspace
-        </div>
-        {navItems.map(({ to, label, icon: Icon }) => (
+      {/* Primary nav */}
+      <nav className="px-2 space-y-0.5">
+        {primaryNav.map((n) => (
           <NavLink
-            key={to}
-            to={to}
+            key={n.to}
+            to={n.to}
+            end={n.to === '/home'}
             className={({ isActive }) => cn('nav-item', isActive && 'active')}
           >
-            <Icon className="w-4 h-4 shrink-0 text-ink-3" />
-            <span>{label}</span>
+            <n.icon className="w-4 h-4 shrink-0" />
+            <span>{n.label}</span>
+            {n.label === 'Studio' && (
+              <span className="ml-auto text-ink-4 hover:text-ink-1">
+                <Plus className="w-3.5 h-3.5" />
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      {/* Status footer */}
-      <div className="px-3 py-3 border-t border-line-subtle">
-        <div className="px-3 py-2.5 rounded-lg bg-bg-elevated/60 border border-line-subtle">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Activity className="w-3.5 h-3.5 text-ink-3" />
-            <span className="text-[10px] uppercase tracking-widest text-ink-3 font-semibold">
-              Provider
-            </span>
+      {/* Pinned */}
+      <div className="px-5 mt-6 mb-2 text-[11px] uppercase tracking-wider text-ink-3 font-semibold">
+        Pinned
+      </div>
+      <nav className="px-2 space-y-0.5 flex-1 overflow-y-auto">
+        {pinnedNav.map((n) => (
+          <NavLink
+            key={`${n.label}-${n.to}`}
+            to={n.to}
+            className={({ isActive }) => cn('nav-item', isActive && 'active')}
+          >
+            <n.icon className="w-4 h-4 shrink-0" />
+            <span>{n.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Bottom card */}
+      <div className="px-3 pb-3">
+        <div className="card p-3.5 mb-3">
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-bg-elevated border border-line-subtle grid place-items-center shrink-0 mt-0.5">
+              <Send className="w-4 h-4 text-ink-2" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-ink-1">Connect a real corpus</div>
+              <div className="text-[11px] text-ink-3 mt-0.5 leading-snug">
+                Drop authentic posts into <code className="font-mono text-[10px] text-ink-2">corpus/</code>
+                {' '}and re-run extract_voice for production-grade output.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <NavLink
+          to="/settings"
+          className={({ isActive }) => cn('nav-item w-full', isActive && 'active')}
+        >
+          <SettingsIcon className="w-4 h-4 shrink-0" />
+          <span>Settings</span>
+        </NavLink>
+        <a
+          href="/api/docs"
+          target="_blank"
+          rel="noreferrer"
+          className="nav-item w-full"
+        >
+          <Code2 className="w-4 h-4 shrink-0" />
+          <span>API docs</span>
+        </a>
+
+        <div className="mt-2 px-2 pt-2 border-t border-line-subtle">
+          <div className="flex items-center gap-2 text-[11px] text-ink-3">
             <span
               className={cn(
-                'ml-auto w-1.5 h-1.5 rounded-full',
+                'w-1.5 h-1.5 rounded-full shrink-0',
                 status?.has_active_provider_key ? 'bg-emerald-500' : 'bg-amber-500',
               )}
             />
-          </div>
-          <div className="font-mono text-xs text-ink-2 truncate">
-            {status ? `${status.provider} / ${status.model}` : '…'}
+            <span className="font-mono truncate">
+              {status ? `${status.provider} / ${status.model}` : '…'}
+            </span>
+            <Sparkles className="w-3 h-3 text-ink-4 ml-auto shrink-0" />
           </div>
         </div>
-        <a
-          href="https://github.com/anthropics/claude-code"
-          target="_blank"
-          rel="noreferrer"
-          className="mt-2 flex items-center gap-2 px-3 py-2 text-xs text-ink-4 hover:text-ink-2 transition"
-        >
-          <Sparkles className="w-3 h-3" />
-          <span>Local · v1</span>
-        </a>
       </div>
     </aside>
   )

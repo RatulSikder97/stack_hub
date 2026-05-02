@@ -52,5 +52,23 @@
     "created_at": "2026-05-01T20:51:19.340960+00:00",
     "published_at": null,
     "retention_check_answers": []
+  },
+  {
+    "post_id": "20260502-the-hidden-costs-of-good-enough-decisions",
+    "working_title": "The Hidden Costs of 'Good Enough' Decisions",
+    "niche": "",
+    "hook_pattern_used": "Counterintuitive Open",
+    "structural_framework_used": "The Reversal",
+    "status": "drafting",
+    "publish_date": null,
+    "open_loop_resolved": false,
+    "ai_tells_check_passed": false,
+    "human_edit_completed": false,
+    "share_count": 0,
+    "open_rate": 0.0,
+    "substack_url": "",
+    "created_at": "2026-05-02T06:56:53.188524+00:00",
+    "published_at": null,
+    "retention_check_answers": []
   }
 ]

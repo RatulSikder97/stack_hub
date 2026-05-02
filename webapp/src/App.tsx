@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { HomePage } from './pages/Home'
 import { Studio } from './pages/Studio'
 import { LibraryPage } from './pages/Library'
 import { PostDetailPage } from './pages/PostDetail'
@@ -12,13 +13,14 @@ function App() {
     <ToastProvider>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<Navigate to="/studio" replace />} />
+          <Route index element={<Navigate to="/home" replace />} />
+          <Route path="home" element={<HomePage />} />
           <Route path="studio" element={<Studio />} />
           <Route path="library" element={<LibraryPage />} />
           <Route path="library/:postId" element={<PostDetailPage />} />
           <Route path="translate" element={<TranslatePage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/studio" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
         </Route>
       </Routes>
     </ToastProvider>
