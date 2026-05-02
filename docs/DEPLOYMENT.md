@@ -46,30 +46,45 @@ You'll create that token in **Step 0** below.
 
 ## Step 0 · Create a GitHub PAT (one-time, ~2 minutes)
 
-The server needs read access to your private repo and the GHCR package.
-Use a **fine-grained token** scoped narrowly to just this:
+The server needs **read access to your private repo** AND **pull access to
+your GHCR package**. GitHub's fine-grained tokens currently don't support
+the Container Registry for personal accounts, so you have two options:
+
+### Option A · One classic PAT (simpler, recommended)
+
+A single classic Personal Access Token covers both needs.
 
 1. GitHub → your avatar → **Settings** → **Developer settings** →
-   **Personal access tokens** → **Fine-grained tokens** → **Generate new
-   token**
-2. **Token name:** `stack-hub-deploy`
-3. **Expiration:** 90 days (rotate before expiry)
-4. **Resource owner:** your account
-5. **Repository access:** *Only select repositories* → pick your
-   `stack-hub` repo
-6. **Repository permissions** → set:
-   * **Contents** → **Read-only**
-   * (Metadata is auto-included)
-7. **Account permissions** → set:
-   * **Packages** → **Read-only**
-8. **Generate token**, copy the `github_pat_...` string somewhere safe.
+   **Personal access tokens** → **Tokens (classic)** → **Generate new
+   token (classic)**.
+2. **Note:** `stack-hub-deploy`
+3. **Expiration:** 90 days (rotate before expiry).
+4. Check exactly two scopes:
+   * **`repo`** — read private repo contents (for the deploy files).
+   * **`read:packages`** — pull from `ghcr.io`.
+5. **Generate token**, copy the `ghp_...` string.
 
-This token is scoped narrowly enough that it can ONLY read code + pull
-the image. It can't push code, create PRs, or write packages.
+> The `repo` scope is broader than ideal (it grants write to all your
+> private repos for this token). If that bothers you, see Option B.
 
-> **Rotation:** add a calendar reminder for day 85. Rotation is just
-> "regenerate the token, edit `~/.docker/config.json` with the new one,
-> re-run `docker login ghcr.io` if needed".
+### Option B · Two tokens (more granular)
+
+Use a fine-grained token for code + a classic token for the image:
+
+1. **Fine-grained** for code:
+   - **Repository access:** Only `stack-hub` repo
+   - **Repository permissions:** `Contents = Read`
+2. **Classic** for the image:
+   - Scopes: just `read:packages`
+
+Then in the bootstrap call below, pass `GH_TOKEN=<fine-grained>` (used
+for the GitHub API) and `GHCR_TOKEN=<classic>` (used for `docker login`).
+You'd need to tweak `bootstrap.sh` to read both — it currently uses one
+token for both. The Option A path is what `bootstrap.sh` ships with.
+
+> **Rotation:** classic tokens default to expiring; add a calendar
+> reminder. To rotate: regenerate the token, then on the server run
+> `echo <new-token> | sudo docker login ghcr.io -u <you> --password-stdin`.
 
 ---
 

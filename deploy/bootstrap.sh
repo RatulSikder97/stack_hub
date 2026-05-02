@@ -6,17 +6,14 @@
 # the private repo with auth, logs Docker in to GHCR, generates random auth
 # secrets, and starts the stack.
 #
-# You need a GitHub Personal Access Token with at least:
-#   * `Contents: Read`   on your stack-hub repository
-#   * `Packages: Read`   on your account
+# You need a GitHub **classic** Personal Access Token with these scopes:
+#   * `repo`            (read private repo contents)
+#   * `read:packages`   (pull image from ghcr.io)
 #
-# Fine-grained PAT recommended:
+# Fine-grained PATs do not support GHCR for personal accounts at the time
+# of writing — that's why we need a classic token. Generate at:
 #   GitHub → Settings → Developer settings → Personal access tokens
-#     → Fine-grained tokens → Generate new token
-#         Resource owner:        your account
-#         Repository access:     Only select repositories → stack-hub
-#         Repository permissions: Contents=Read, Metadata=Read (auto)
-#         Account permissions:   Packages=Read
+#     → Tokens (classic) → Generate new token (classic)
 #
 # Usage:
 #   sudo \
