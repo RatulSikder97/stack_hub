@@ -39,6 +39,7 @@ from pipeline.llm import LLMProvider, MissingAPIKeyError, build_provider
 from pipeline.llm.base import RateLimitError
 from pipeline.logging_config import get_logger
 from pipeline.models import PostRecord, PostStatus, RetentionAnswer, now_iso
+from pipeline.recall import RecallClient, RecallError, RecallNotConfigured
 from pipeline.repository import PostNotFoundError, PostRepository
 from pipeline.templating import render_master_prompt
 from pipeline.transcript import parse as parse_transcript
@@ -194,6 +195,23 @@ class TranscriptParseResponse(BaseModel):
     line_count: int
     word_count: int
     speakers: list[str]
+
+
+class BotCreateRequest(BaseModel):
+    meeting_url: str
+    bot_name: str | None = None
+
+
+class BotCreateResponse(BaseModel):
+    bot_id: str
+
+
+class BotStatusResponse(BaseModel):
+    bot_id: str
+    state: str  # queued | joining | in_call | done | error
+    raw_status_codes: list[str]
+    transcript_text: str | None = None
+    error: str | None = None
 
 
 # Whitelist of fixed editable paths. Anything else must match a dynamic rule
@@ -396,6 +414,75 @@ def create_app(provider_factory: ProviderFactory | None = None) -> FastAPI:
         if user is None:
             raise HTTPException(status_code=401, detail="not authenticated")
         return LoginResponse(username=user.username, role=user.role)
+
+    # ---- Real-time meeting bot (Recall.ai) -------------------------------
+
+    def _ensure_recall() -> RecallClient:  # noqa: N802 — closure
+        try:
+            return RecallClient()
+        except RecallNotConfigured as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Recall.ai is not configured. Set RECALL_API_KEY in .env to "
+                    "enable real-time meeting bots. (Cost: ~$0.50/meeting hour.)"
+                ),
+            ) from exc
+
+    @app.post(
+        "/api/meeting/bot",
+        response_model=BotCreateResponse,
+        responses={400: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+    )
+    def create_meeting_bot(
+        payload: BotCreateRequest,
+        _user: _auth.User = Depends(require_user),
+    ) -> BotCreateResponse:
+        if not payload.meeting_url.strip():
+            raise HTTPException(status_code=400, detail="meeting_url is required")
+        client = _ensure_recall()
+        try:
+            bot_id = client.create_bot(
+                payload.meeting_url,
+                bot_name=payload.bot_name or "Stack Hub",
+            )
+        except RecallError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        return BotCreateResponse(bot_id=bot_id)
+
+    @app.get(
+        "/api/meeting/bot/{bot_id}",
+        response_model=BotStatusResponse,
+        responses={503: {"model": ErrorResponse}},
+    )
+    def get_meeting_bot_status(
+        bot_id: str,
+        _user: _auth.User = Depends(require_user),
+    ) -> BotStatusResponse:
+        client = _ensure_recall()
+        try:
+            status = client.get_status(bot_id)
+        except RecallError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        return BotStatusResponse(
+            bot_id=status.bot_id,
+            state=status.state,
+            raw_status_codes=status.raw_status_codes,
+            transcript_text=status.transcript_text,
+            error=status.error,
+        )
+
+    @app.delete(
+        "/api/meeting/bot/{bot_id}",
+        responses={503: {"model": ErrorResponse}},
+    )
+    def leave_meeting_bot(
+        bot_id: str,
+        _user: _auth.User = Depends(require_user),
+    ) -> dict[str, Any]:
+        client = _ensure_recall()
+        client.leave_call(bot_id)
+        return {"bot_id": bot_id, "left": True}
 
     # ---- Meeting transcript ingestion ------------------------------------
 

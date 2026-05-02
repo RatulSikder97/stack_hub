@@ -83,6 +83,16 @@ export interface TranscriptParseResult {
   speakers: string[]
 }
 
+export type BotState = 'queued' | 'joining' | 'in_call' | 'done' | 'error'
+
+export interface BotStatus {
+  bot_id: string
+  state: BotState
+  raw_status_codes: string[]
+  transcript_text: string | null
+  error: string | null
+}
+
 // ---- Endpoints ----
 
 export const api = {
@@ -104,6 +114,17 @@ export const api = {
   // Meetings
   parseTranscript: (content: string, filename?: string) =>
     request<TranscriptParseResult>('POST', '/meeting/parse', { content, filename }),
+
+  // Real-time meeting bot (Recall.ai)
+  createMeetingBot: (meeting_url: string, bot_name?: string) =>
+    request<{ bot_id: string }>('POST', '/meeting/bot', { meeting_url, bot_name }),
+  getMeetingBot: (botId: string) =>
+    request<BotStatus>('GET', `/meeting/bot/${encodeURIComponent(botId)}`),
+  leaveMeetingBot: (botId: string) =>
+    request<{ bot_id: string; left: boolean }>(
+      'DELETE',
+      `/meeting/bot/${encodeURIComponent(botId)}`,
+    ),
 
   // Pipeline
   status: () => request<StatusInfo>('GET', '/status'),
