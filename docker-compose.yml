@@ -1,30 +1,32 @@
 # =============================================================================
-# Stack Hub Studio — production-ready compose for self-hosted deploy.
+# Stack Hub Studio — production compose for self-hosted deploy.
 #
 # Two services:
-#   * stackhub  — FastAPI + React SPA in one container, listens on :8765
-#   * caddy     — reverse proxy that auto-provisions HTTPS via Let's Encrypt
+#   * stackhub  — FastAPI + React SPA, pulled from GHCR (built by CI on main)
+#   * caddy     — reverse proxy, auto-HTTPS via Let's Encrypt
 #
-# Required env vars (set in .env next to this file):
-#   DOMAIN=studio.example.com    # public hostname pointing to this server
-#   ADMIN_PASSWORD=...           # initial admin password
-#   AUTH_SECRET=...              # 32+ chars random, signs session cookies
-#   GEMINI_API_KEY=... (or OPENAI_API_KEY / ANTHROPIC_API_KEY / NOVITA_API_KEY)
+# Required env vars (in .env next to this file):
+#   IMAGE                       e.g. ghcr.io/yourname/stack-hub:latest
+#   DOMAIN                      public hostname pointing to this server
+#   ACME_EMAIL                  email for Let's Encrypt cert notifications
+#   ADMIN_PASSWORD              initial admin password
+#   AUTH_SECRET                 32+ random chars (signs session cookies)
+#   GEMINI_API_KEY              (or OPENAI / ANTHROPIC / NOVITA)
 #
-# Bring it up:
+# Server bring-up (no source on disk, just compose + Caddyfile + .env):
+#   docker compose pull
 #   docker compose up -d
-# Tear down (data persists):
+#
+# Roll out a new image (CI pushed a new :latest):
+#   docker compose pull stackhub && docker compose up -d stackhub
+#
+# Tear down (data volumes persist):
 #   docker compose down
-# Pull updates + redeploy:
-#   git pull && docker compose up -d --build
 # =============================================================================
 
 services:
   stackhub:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: stackhub:latest
+    image: ${IMAGE:?Set IMAGE=ghcr.io/<your-org>/<your-repo>:latest in .env}
     container_name: stackhub
     restart: unless-stopped
     env_file: .env

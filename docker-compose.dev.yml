@@ -1,0 +1,13 @@
+# =============================================================================
+# Local-dev override. Builds the image from source instead of pulling.
+#
+# Use:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# =============================================================================
+
+services:
+  stackhub:
+    image: stackhub:dev
+    build:
+      context: .
+      dockerfile: Dockerfile
