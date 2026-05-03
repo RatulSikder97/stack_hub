@@ -69,7 +69,11 @@ _STATE_MAP: dict[str, RecallState] = {
     "in_waiting_room": "joining",
     "in_call_not_recording": "in_call",
     "in_call_recording": "in_call",
-    "call_ended": "done",
+    # call_ended is intentionally absent: bot has left the call but Recall is
+    # still finalizing the transcript. _simplify_state falls back to the prior
+    # known code (typically in_call_recording -> in_call) so polling continues
+    # until recording_done/done arrives. Mapping it to "done" caused the
+    # frontend to stop polling and fetch the transcript before it existed.
     "recording_done": "done",
     "done": "done",
     "fatal": "error",
@@ -173,21 +177,65 @@ class RecallClient:
     # ----- internals ------------------------------------------------------
 
     def _fetch_transcript_text(self, bot_id: str, bot_data: dict[str, Any]) -> str | None:
-        """Try multiple shapes Recall has used; degrade gracefully."""
-        # Newer Recall API: GET /bot/{id}/transcript/?include=words
-        try:
-            data = self._get(f"/bot/{bot_id}/transcript/")
-            return _format_transcript(data)
-        except RecallError:
-            pass
-
-        # Older shape: bot_data["recordings"][0]["transcript"]
+        """Pull transcript from recording media_shortcuts; fall back to legacy shapes."""
         recordings = bot_data.get("recordings") or []
+
+        # Current Recall API: bot.recordings[*].media_shortcuts.transcript.data.download_url
+        # is a presigned S3 URL pointing at a diarized JSON file (list of
+        # {participant, words[], language_code}).
         for rec in recordings:
+            if not isinstance(rec, dict):
+                continue
+            shortcuts = rec.get("media_shortcuts")
+            if not isinstance(shortcuts, dict):
+                continue
+            transcript_shortcut = shortcuts.get("transcript")
+            if not isinstance(transcript_shortcut, dict):
+                continue
+            data = transcript_shortcut.get("data")
+            url = data.get("download_url") if isinstance(data, dict) else None
+            if not isinstance(url, str) or not url:
+                continue
+            try:
+                payload = self._download_json_url(url)
+            except RecallError:
+                continue
+            text = _format_transcript(payload)
+            if text:
+                return text
+
+        # Legacy fallback: bot.recordings[0].transcript inline
+        for rec in recordings:
+            if not isinstance(rec, dict):
+                continue
             transcript = rec.get("transcript")
             if transcript:
                 return _format_transcript(transcript)
         return None
+
+    def _download_json_url(self, url: str) -> Any:
+        """GET an arbitrary URL (e.g. S3 presigned) without our auth header."""
+        do_close = self._client is None
+        client = self._client or httpx.Client(timeout=self._timeout)
+        try:
+            response = client.request("GET", url)
+        except httpx.HTTPError as exc:
+            raise RecallError(f"recall.ai download error: {exc}") from exc
+        finally:
+            if do_close:
+                client.close()
+        if response.status_code >= 400:
+            raise RecallError(
+                f"recall.ai download -> {response.status_code}: {response.text[:200]}"
+            )
+        if not response.content:
+            return None
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise RecallError(
+                f"recall.ai download not JSON: {response.text[:200]}"
+            ) from exc
 
     def _request(
         self,
@@ -293,6 +341,7 @@ def _format_utterances(items: list[Any]) -> str:
         speaker = (
             entry.get("speaker")
             or entry.get("speaker_name")
+            or entry.get("participant")
             or entry.get("name")
             or ""
         )

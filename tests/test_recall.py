@@ -32,6 +32,16 @@ def test_simplify_state_uses_latest_known() -> None:
     assert _simplify_state(["in_call_recording", "weird_unknown_code"]) == "in_call"
 
 
+def test_simplify_state_call_ended_is_transient_not_done() -> None:
+    # call_ended fires when the bot leaves the call but BEFORE Recall has
+    # finalized the transcript. Treating it as terminal stops polling early
+    # and fetches an empty transcript. State must remain "in_call" until
+    # recording_done/done arrives.
+    assert _simplify_state(["in_call_recording", "call_ended"]) == "in_call"
+    assert _simplify_state(["in_call_recording", "call_ended", "recording_done"]) == "done"
+    assert _simplify_state(["in_call_recording", "call_ended", "recording_done", "done"]) == "done"
+
+
 # ---- Transcript formatting ----
 
 
@@ -55,6 +65,24 @@ def test_format_transcript_words_array() -> None:
         ]
     }
     assert _format_transcript(payload) == "Alice: Hello world."
+
+
+def test_format_transcript_recall_diarized_shape() -> None:
+    # Recall's current S3 transcript format: list of utterances with
+    # `participant: {name}` (not `speaker`) and a `words[]` array.
+    payload = [
+        {
+            "participant": {"name": "Ratul Sikder", "is_host": True},
+            "words": [{"text": "Hi"}, {"text": "everyone."}],
+            "language_code": "en",
+        },
+        {
+            "participant": {"name": "Other"},
+            "words": [{"text": "Hello."}],
+            "language_code": "en",
+        },
+    ]
+    assert _format_transcript(payload) == "Ratul Sikder: Hi everyone.\nOther: Hello."
 
 
 def test_format_transcript_plain_string() -> None:
@@ -129,6 +157,7 @@ def test_create_bot_returns_id() -> None:
 
 
 def test_get_status_done_pulls_transcript() -> None:
+    s3_url = "https://example-bucket.s3.amazonaws.com/transcript.json?X-Sig=abc"
     fake = _FakeHttpClient(
         {
             ("GET", "/api/v1/bot/bot-1/"): (
@@ -139,16 +168,26 @@ def test_get_status_done_pulls_transcript() -> None:
                         {"code": "ready"},
                         {"code": "joining_call"},
                         {"code": "in_call_recording"},
+                        {"code": "call_ended"},
                         {"code": "recording_done"},
+                        {"code": "done"},
                     ],
-                    "recordings": [],
+                    "recordings": [
+                        {
+                            "media_shortcuts": {
+                                "transcript": {
+                                    "data": {"download_url": s3_url},
+                                },
+                            },
+                        }
+                    ],
                 },
             ),
-            ("GET", "/api/v1/bot/bot-1/transcript/"): (
+            ("GET", s3_url): (
                 200,
                 [
-                    {"speaker": "Alice", "text": "Welcome."},
-                    {"speaker": "Bob", "text": "Thanks."},
+                    {"participant": {"name": "Alice"}, "words": [{"text": "Welcome."}]},
+                    {"participant": {"name": "Bob"}, "words": [{"text": "Thanks."}]},
                 ],
             ),
         }
