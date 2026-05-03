@@ -37,7 +37,7 @@ except Exception:  # noqa: BLE001
 
 
 RecallState = Literal["queued", "joining", "in_call", "done", "error"]
-DEFAULT_BASE_URL = "https://us-east-1.recall.ai/api/v1"
+DEFAULT_BASE_URL = "https://us-west-2.recall.ai/api/v1"
 
 
 class RecallError(RuntimeError):
