@@ -124,6 +124,8 @@ def test_create_bot_returns_id() -> None:
     assert method == "POST"
     assert "/bot/" in path
     assert body["meeting_url"] == "https://zoom.us/j/123"
+    assert body["recording_config"]["transcript"]["provider"] == {"meeting_captions": {}}
+    assert "transcription_options" not in body
 
 
 def test_get_status_done_pulls_transcript() -> None:

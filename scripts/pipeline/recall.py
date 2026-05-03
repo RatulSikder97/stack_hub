@@ -37,7 +37,7 @@ except Exception:  # noqa: BLE001
 
 
 RecallState = Literal["queued", "joining", "in_call", "done", "error"]
-DEFAULT_BASE_URL = "https://us-west-2.recall.ai/api/v1"
+DEFAULT_BASE_URL = "https://ap-northeast-1.recall.ai/api/v1"
 
 
 class RecallError(RuntimeError):
@@ -131,7 +131,9 @@ class RecallClient:
         body: dict[str, Any] = {
             "meeting_url": meeting_url.strip(),
             "bot_name": bot_name,
-            "transcription_options": {"provider": transcription_provider},
+            "recording_config": {
+                "transcript": {"provider": {transcription_provider: {}}},
+            },
         }
         data = self._post("/bot/", body)
         bot_id = str(data.get("id") or "")
