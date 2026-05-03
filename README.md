@@ -6,6 +6,9 @@ keeping a single source of truth in flat files plus git.
 
 > **Going live?** See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Docker
 > Compose + Caddy on AWS Lightsail with auto-HTTPS, in 7 steps.
+>
+> **Meeting bot integration?** See [`docs/MEETING_BOT.md`](docs/MEETING_BOT.md) —
+> Recall.ai + Deepgram architecture, configuration, costs, and troubleshooting.
 
 ## Project purpose
 
