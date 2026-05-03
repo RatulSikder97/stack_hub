@@ -10,6 +10,7 @@ from pipeline.recall import (
     RecallClient,
     RecallError,
     RecallNotConfigured,
+    _build_provider_options,
     _format_transcript,
     _simplify_state,
 )
@@ -136,7 +137,10 @@ class _FakeResponse:
         raise ValueError("not json")
 
 
-def test_create_bot_returns_id() -> None:
+def test_create_bot_returns_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Clear env so we test the hard-coded default, not whatever the host has set.
+    for var in ("RECALL_TRANSCRIPTION_PROVIDER", "RECALL_TRANSCRIPTION_LANGUAGE", "RECALL_TRANSCRIPTION_MODEL"):
+        monkeypatch.delenv(var, raising=False)
     fake = _FakeHttpClient(
         {
             ("POST", "/api/v1/bot/"): (
@@ -154,6 +158,50 @@ def test_create_bot_returns_id() -> None:
     assert body["meeting_url"] == "https://zoom.us/j/123"
     assert body["recording_config"]["transcript"]["provider"] == {"meeting_captions": {}}
     assert "transcription_options" not in body
+
+
+def test_create_bot_uses_env_provider_language_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RECALL_TRANSCRIPTION_PROVIDER", "deepgram_streaming")
+    monkeypatch.setenv("RECALL_TRANSCRIPTION_LANGUAGE", "bn")
+    monkeypatch.setenv("RECALL_TRANSCRIPTION_MODEL", "nova-2-general")
+    fake = _FakeHttpClient(
+        {("POST", "/api/v1/bot/"): (201, {"id": "bot-2", "status_changes": []})}
+    )
+    client = RecallClient(api_key="test", client=fake)
+    client.create_bot("https://zoom.us/j/x")
+    body = fake.calls[0][2]
+    assert body["recording_config"]["transcript"]["provider"] == {
+        "deepgram_streaming": {"language": "bn", "model": "nova-2-general"}
+    }
+
+
+def test_create_bot_kwargs_override_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RECALL_TRANSCRIPTION_PROVIDER", "deepgram_streaming")
+    monkeypatch.setenv("RECALL_TRANSCRIPTION_LANGUAGE", "bn")
+    fake = _FakeHttpClient(
+        {("POST", "/api/v1/bot/"): (201, {"id": "bot-3", "status_changes": []})}
+    )
+    client = RecallClient(api_key="test", client=fake)
+    client.create_bot(
+        "https://zoom.us/j/x",
+        transcription_provider="meeting_captions",
+        transcription_language="",
+    )
+    body = fake.calls[0][2]
+    assert body["recording_config"]["transcript"]["provider"] == {"meeting_captions": {}}
+
+
+def test_build_provider_options_meeting_captions_ignores_other_args() -> None:
+    assert _build_provider_options("meeting_captions", "bn", "nova-2") == {}
+
+
+def test_build_provider_options_deepgram_omits_empty_fields() -> None:
+    assert _build_provider_options("deepgram_streaming", "", "") == {}
+    assert _build_provider_options("deepgram_streaming", "bn", "") == {"language": "bn"}
+    assert _build_provider_options("deepgram_streaming", "bn", "nova-2") == {
+        "language": "bn",
+        "model": "nova-2",
+    }
 
 
 def test_get_status_done_pulls_transcript() -> None:

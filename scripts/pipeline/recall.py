@@ -127,16 +127,42 @@ class RecallClient:
         meeting_url: str,
         *,
         bot_name: str = "Stack Hub",
-        transcription_provider: str = "meeting_captions",
+        transcription_provider: str | None = None,
+        transcription_language: str | None = None,
+        transcription_model: str | None = None,
     ) -> str:
-        """Send a bot to a meeting. Returns the bot_id."""
+        """Send a bot to a meeting. Returns the bot_id.
+
+        When transcription_* args are None, values fall back to env:
+            RECALL_TRANSCRIPTION_PROVIDER (default ``meeting_captions``)
+            RECALL_TRANSCRIPTION_LANGUAGE (e.g. ``bn`` for Bengali)
+            RECALL_TRANSCRIPTION_MODEL (e.g. ``nova-2-general`` for Deepgram)
+        """
         if not meeting_url.strip():
             raise RecallError("meeting_url must not be empty")
+        provider = (
+            transcription_provider
+            if transcription_provider is not None
+            else (os.environ.get("RECALL_TRANSCRIPTION_PROVIDER") or "").strip()
+            or "meeting_captions"
+        )
+        language = (
+            transcription_language
+            if transcription_language is not None
+            else (os.environ.get("RECALL_TRANSCRIPTION_LANGUAGE") or "").strip()
+        )
+        model = (
+            transcription_model
+            if transcription_model is not None
+            else (os.environ.get("RECALL_TRANSCRIPTION_MODEL") or "").strip()
+        )
         body: dict[str, Any] = {
             "meeting_url": meeting_url.strip(),
             "bot_name": bot_name,
             "recording_config": {
-                "transcript": {"provider": {transcription_provider: {}}},
+                "transcript": {
+                    "provider": {provider: _build_provider_options(provider, language, model)},
+                },
             },
         }
         data = self._post("/bot/", body)
@@ -287,6 +313,24 @@ class RecallClient:
 # ---------------------------------------------------------------------------
 # Helpers (module-level so tests can call them directly)
 # ---------------------------------------------------------------------------
+
+
+def _build_provider_options(provider: str, language: str, model: str) -> dict[str, Any]:
+    """Build the per-provider options dict for recording_config.transcript.provider.
+
+    ``meeting_captions`` is a passthrough of the meeting platform's own captions
+    and accepts no options. Other providers (deepgram_streaming, assembly_ai_*,
+    etc.) accept ``language`` and optionally ``model``. Empty strings are
+    omitted so Recall can apply provider defaults.
+    """
+    if provider == "meeting_captions":
+        return {}
+    options: dict[str, Any] = {}
+    if language:
+        options["language"] = language
+    if model:
+        options["model"] = model
+    return options
 
 
 def _extract_status_codes(bot_data: dict[str, Any]) -> list[str]:
